@@ -46,25 +46,41 @@ app.post('/model/create.json', async (c) => {
   const body = await c.req.json();
   const { name, vendor, url } = body;
 
-  const post = await ModelConfig.query().create({
+  const instance = await ModelConfig.query().create({
     name,
     vendor,
     url,
   });
 
-  return c.json(post);
-});
-
-
-app.get('/user/list.json', async (c) => {
-  const users = await User.query().get();
-  return c.json(users);
+  return c.json(instance);
 });
 
 app.get('/model/list.json', async (c) => {
   const modelConfigs = await ModelConfig.query().get();
   return c.json(modelConfigs);
 });
+
+app.get('/user/list.json', async (c) => {
+  const users = await User.query().get();
+  return c.json(users);
+});
+
+app.post('/user/create.json', async (c) => {
+  const body = await c.req.json();
+  const { name } = body;
+
+  const token:String = crypto.randomUUID();
+
+  const instance = await User.query().create({
+    name,
+    token,
+  });
+
+  return c.json(instance);
+});
+
+
+
 
 app.post('/v1/chat/completions', chatCompletions);
 

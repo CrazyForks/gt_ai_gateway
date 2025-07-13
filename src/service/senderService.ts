@@ -11,7 +11,8 @@ import recordService from "./recordService";
 
 async function sendRequest (c:Context, user:SgUser, modelConfig:SgModel, vendor:SgVendor):Promise<Response>{
 
-    const record = await recordService.create(user.id, modelConfig.id);
+    let body: string = await c.req.text();
+    const record = await recordService.create(user.id, modelConfig.id, body);
     const recordId = record.id;
 
     console.log("sendRequest: modelConfig={}", modelConfig);
@@ -23,7 +24,6 @@ async function sendRequest (c:Context, user:SgUser, modelConfig:SgModel, vendor:
 
     let getResponseHeaderPromise: CustomPromise<void> = new CustomPromise();
 
-    let body: string = await c.req.text();
     console.log("body:", body);
 
     let requestOptions = {

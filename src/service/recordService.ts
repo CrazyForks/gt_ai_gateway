@@ -1,11 +1,11 @@
 
 import {SgRecord} from "../model/sgRecord";
 
-async function create(userId: number, modelId: number) {
+async function create(userId: number, modelId: number, requestData: string | null) {
     return SgRecord.query().create({
         user_id: userId,
         model_id: modelId,
-        request_data: null,
+        request_data: requestData,
         response_data: null,
         status: 'init',
     });

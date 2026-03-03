@@ -127,5 +127,6 @@ class SSEAccumulator {
     }
 }
 
-export type { SSEMessage, AccumulatedResponse };
-export { SSEAccumulator };
+export default {
+    SSEAccumulator,
+};

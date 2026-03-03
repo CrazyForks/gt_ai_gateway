@@ -1,7 +1,7 @@
 import { Context } from "hono";
 
 
-export class AppError extends Error {
+class AppError extends Error {
     constructor(
         public message: string,
         public statusCode: number = 400,
@@ -13,7 +13,7 @@ export class AppError extends Error {
 }
 
 
-export class NotFoundError extends AppError {
+class NotFoundError extends AppError {
     constructor(message: string) {
         super(message, 404, "NOT_FOUND");
         this.name = "NotFoundError";
@@ -21,12 +21,12 @@ export class NotFoundError extends AppError {
 }
 
 
-export function isAppError(error: unknown): error is AppError {
+function isAppError(error: unknown): error is AppError {
     return error instanceof AppError;
 }
 
 
-export const errorHandler = async (c: Context, next: () => Promise<void>) => {
+const errorHandler = async (c: Context, next: () => Promise<void>) => {
     try {
         await next();
     } catch (error) {
@@ -53,4 +53,9 @@ export const errorHandler = async (c: Context, next: () => Promise<void>) => {
     }
 };
 
-export default errorHandler;
+export default {
+    AppError,
+    NotFoundError,
+    isAppError,
+    errorHandler,
+};

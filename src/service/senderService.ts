@@ -1,7 +1,7 @@
 import { Context } from "hono";
 import { SgModel } from "../model/sgModel";
 import { StatusCode } from "hono/dist/types/utils/http-status";
-import { CustomPromise } from "../util/enhanced";
+import enhanced from "../util/enhanced";
 import { streamSSE, SSEStreamingApi } from "hono/streaming";
 import {
     EventStreamContentType,
@@ -11,7 +11,7 @@ import { SgUser } from "../model/sgUser";
 import { SgVendor } from "../model/sgVendor";
 import recordService from "./recordService";
 import { SgRecordStatus, ApiFormat, VendorType } from "../constants";
-import { SSEAccumulator } from "../util/sseAccumulator";
+import sseAccumulator from "../util/sseAccumulator";
 
 /**
  * 为 Vendor 填充默认 URL
@@ -64,10 +64,10 @@ async function sendRequest(
     let isStreamResponse: boolean = true; // 是否为流式响应
     let upstreamStatusCode: StatusCode | null = null; // 上游响应状态码
     let upstreamResponseText: string | null = null; // 上游响应文本（非流式）
-    let sseAccumulator = new SSEAccumulator(); // SSE 消息累加器
+    let sseAccumulator = new sseAccumulator.SSEAccumulator(); // SSE 消息累加器
 
     // 自定义 Promise，用于等待响应头到达（判断是否为流式）
-    let getResponseHeaderPromise: CustomPromise<void> = new CustomPromise();
+    let getResponseHeaderPromise: enhanced.CustomPromise<void> = new enhanced.CustomPromise();
 
     console.log("body:", body);
 

@@ -2,7 +2,7 @@ import { Context } from "hono";
 import { SgModel } from "../model/sgModel";
 import { SgVendor } from "../model/sgVendor";
 import modelService from "../service/modelService";
-import { AppError, NotFoundError } from "../util/errorHandler";
+import errorHandler from "../util/errorHandler";
 
 
 async function checkDuplicateEnabledModel(
@@ -28,20 +28,20 @@ async function createModel(c: Context) {
 
     // Validate required fields
     if (!name || !vendor_id) {
-        throw new AppError("Missing required fields");
+        throw new errorHandler.AppError("Missing required fields");
     }
 
     // Validate vendor_id exists
     const vendor = await SgVendor.query().find(vendor_id);
     if (!vendor) {
-        throw new NotFoundError("Vendor not found");
+        throw new errorHandler.NotFoundError("Vendor not found");
     }
 
     // Check for duplicate enabled model
     if (enable) {
         const isDuplicate = await checkDuplicateEnabledModel(name);
         if (isDuplicate) {
-            throw new AppError("An enabled model with this name already exists", 409);
+            throw new errorHandler.AppError("An enabled model with this name already exists", 409);
         }
     }
 
@@ -67,13 +67,13 @@ async function getModel(c: Context) {
     const modelId = parseInt(id, 10);
 
     if (isNaN(modelId)) {
-        throw new AppError("Invalid ID format");
+        throw new errorHandler.AppError("Invalid ID format");
     }
 
     const model = await SgModel.query().find(modelId);
 
     if (!model) {
-        throw new NotFoundError("Model not found");
+        throw new errorHandler.NotFoundError("Model not found");
     }
 
     return c.json(model);
@@ -85,7 +85,7 @@ async function updateModel(c: Context) {
     const modelId = parseInt(id, 10);
 
     if (isNaN(modelId)) {
-        throw new AppError("Invalid ID format");
+        throw new errorHandler.AppError("Invalid ID format");
     }
 
     const { name, vendor_id, enable } = await c.req.json();
@@ -104,7 +104,7 @@ async function updateModel(c: Context) {
     });
 
     if (!updatedModel) {
-        throw new NotFoundError("Model not found");
+        throw new errorHandler.NotFoundError("Model not found");
     }
 
     console.log("[modelController] Model updated successfully:", updatedModel);

@@ -47,4 +47,6 @@ class CustomPromise<T> {
     }
 }
 
-export { CustomPromise };
+export default {
+    CustomPromise,
+};

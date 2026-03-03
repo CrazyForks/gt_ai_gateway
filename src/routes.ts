@@ -24,7 +24,7 @@ const app = new Hono<{ Bindings: Env }>();
 app.use("*", dbMiddleware);
 
 // 注册全局错误处理中间件
-app.use("*", errorHandler);
+app.use("*", errorHandler.errorHandler);
 
 // System
 app.get("/", systemController.welcome);

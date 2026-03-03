@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { CustomPromise } from "../../src/util/enhanced";
+import enhanced from "../../src/util/enhanced";
 
 describe("CustomPromise", () => {
     it("应该创建一个可解析的 promise", async () => {
-        const customPromise = new CustomPromise<string>();
+        const customPromise = new enhanced.CustomPromise<string>();
 
         // 调用 resolve
         customPromise.resolve("hello");
@@ -13,7 +13,7 @@ describe("CustomPromise", () => {
     });
 
     it("应该创建一个可拒绝的 promise", async () => {
-        const customPromise = new CustomPromise<string>();
+        const customPromise = new enhanced.CustomPromise<string>();
 
         // 调用 reject
         customPromise.reject(new Error("failed"));
@@ -22,7 +22,7 @@ describe("CustomPromise", () => {
     });
 
     it("应该支持 then 方法", async () => {
-        const customPromise = new CustomPromise<number>();
+        const customPromise = new enhanced.CustomPromise<number>();
 
         customPromise.resolve(42);
 
@@ -31,7 +31,7 @@ describe("CustomPromise", () => {
     });
 
     it("应该支持 catch 方法", async () => {
-        const customPromise = new CustomPromise<string>();
+        const customPromise = new enhanced.CustomPromise<string>();
 
         customPromise.reject(new Error("error"));
 
@@ -43,7 +43,7 @@ describe("CustomPromise", () => {
     });
 
     it("应该支持链式调用 then", async () => {
-        const customPromise = new CustomPromise<number>();
+        const customPromise = new enhanced.CustomPromise<number>();
 
         customPromise.resolve(5);
 
@@ -56,7 +56,7 @@ describe("CustomPromise", () => {
     });
 
     it("应该支持 then 的错误回调", async () => {
-        const customPromise = new CustomPromise<number>();
+        const customPromise = new enhanced.CustomPromise<number>();
 
         customPromise.reject(new Error("failed"));
 
@@ -69,7 +69,7 @@ describe("CustomPromise", () => {
     });
 
     it("应该允许多次调用 resolve（最后一次生效）", async () => {
-        const customPromise = new CustomPromise<string>();
+        const customPromise = new enhanced.CustomPromise<string>();
 
         customPromise.resolve("first");
         customPromise.resolve("second");
@@ -80,7 +80,7 @@ describe("CustomPromise", () => {
     });
 
     it("应该正确处理 undefined resolve", async () => {
-        const customPromise = new CustomPromise<void>();
+        const customPromise = new enhanced.CustomPromise<void>();
 
         customPromise.resolve();
 

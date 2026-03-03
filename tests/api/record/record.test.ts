@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { get, post } from '../../helpers/requestHelper'
-import { generateUser } from '../../helpers/mockHelper'
-import { VENDOR_FIXTURES } from '../../fixtures/vendorFixtures'
-import { createRandomModel } from '../../fixtures/modelFixtures'
-import { truncateDatabase } from '../../testHelpers'
+import requestHelper from '../../helpers/requestHelper'
+import mockHelper from '../../helpers/mockHelper'
+import vendorFixtures from '../../fixtures/vendorFixtures'
+import modelFixtures from '../../fixtures/modelFixtures'
+import testHelpers from '../../testHelpers'
 
 /**
  * Record Endpoint Tests
@@ -16,32 +16,32 @@ let testModelId: number
 
 describe('Record API', () => {
   beforeAll(async () => {
-    await truncateDatabase()
+    await testHelpers.truncateDatabase()
 
     // Create test user
-    const user = await post('/user/create.json', generateUser())
+    const user = await requestHelper.post('/user/create.json', mockHelper.generateUser())
     testUserId = user.body.id
     testUserToken = user.body.token
 
     // Create test vendor
-    const vendor = await post('/vendor/create.json', VENDOR_FIXTURES.openai)
+    const vendor = await requestHelper.post('/vendor/create.json', vendorFixtures.VENDOR_FIXTURES.openai())
     testVendorId = vendor.body.id
 
     // Create test model
-    const model = await post('/model/create.json', createRandomModel(testVendorId))
+    const model = await requestHelper.post('/model/create.json', modelFixtures.createRandomModel(testVendorId))
     testModelId = model.body.id
   })
 
   describe('GET /record/list.json', () => {
     it('should return a list of records', async () => {
-      const response = await get('/record/list.json')
+      const response = await requestHelper.get('/record/list.json')
 
       expect(response.status).toBe(200)
       expect(Array.isArray(response.body)).toBe(true)
     })
 
     it('should return records with correct structure', async () => {
-      const response = await get('/record/list.json')
+      const response = await requestHelper.get('/record/list.json')
 
       for (const record of response.body) {
         expect(record).toHaveProperty('id')
@@ -58,14 +58,14 @@ describe('Record API', () => {
 
   describe('GET /record/latest.json', () => {
     it('should return latest records with default limit', async () => {
-      const response = await get('/record/latest.json')
+      const response = await requestHelper.get('/record/latest.json')
 
       expect(response.status).toBe(200)
       expect(Array.isArray(response.body)).toBe(true)
     })
 
     it('should return latest records with specified limit', async () => {
-      const response = await get('/record/latest.json?limit=5')
+      const response = await requestHelper.get('/record/latest.json?limit=5')
 
       expect(response.status).toBe(200)
       expect(Array.isArray(response.body)).toBe(true)
@@ -73,7 +73,7 @@ describe('Record API', () => {
     })
 
     it('should return records sorted by created_at descending', async () => {
-      const response = await get('/record/latest.json?limit=10')
+      const response = await requestHelper.get('/record/latest.json?limit=10')
 
       if (response.body.length > 1) {
         const timestamps = response.body.map((r: any) => new Date(r.created_at).getTime())
@@ -87,14 +87,14 @@ describe('Record API', () => {
 
   describe('GET /record/:id', () => {
     it('should return error for non-existent record ID initially', async () => {
-      const response = await get('/record/99999')
+      const response = await requestHelper.get('/record/99999')
 
       expect(response.status).toBeGreaterThanOrEqual(400)
       expect(response.body).toHaveProperty('error')
     })
 
     it('should return error for invalid ID format', async () => {
-      const response = await get('/record/invalid-id')
+      const response = await requestHelper.get('/record/invalid-id')
 
       expect(response.status).toBeGreaterThanOrEqual(400)
       expect(response.body).toHaveProperty('error')

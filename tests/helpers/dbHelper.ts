@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync, existsSync } from 'fs'
 import Database from 'better-sqlite3'
-import { DB_CONFIG } from '../config'
+import config from '../config'
 import { migrate as runMigrations, DBAdapter, Migration, MIGRATION_DIR } from '../../script/db'
 
 // Check if we're in worker mode
@@ -34,7 +34,7 @@ class LocalDBAdapter implements DBAdapter {
 /**
  * Initialize test database with migrations
  */
-export async function init(): Promise<void> {
+async function init(): Promise<void> {
     if (isWorkerMode) {
         console.log('[WORKER_MODE] init() - database managed by wrangler, no local init needed')
         return
@@ -45,10 +45,10 @@ export async function init(): Promise<void> {
         return
     }
 
-    console.log('Initializing test database:', DB_CONFIG.path)
+    console.log('Initializing test database:', config.DB_CONFIG.path)
 
     // Create database
-    db = new Database(DB_CONFIG.path)
+    db = new Database(config.DB_CONFIG.path)
 
     // Run migrations using the shared migration logic
     const adapter = new LocalDBAdapter(db)
@@ -60,7 +60,7 @@ export async function init(): Promise<void> {
 /**
  * Cleanup database - remove all data
  */
-export async function cleanup(): Promise<void> {
+async function cleanup(): Promise<void> {
     if (isWorkerMode) {
         console.log('[WORKER_MODE] cleanup() - database managed by wrangler, no cleanup needed')
         return
@@ -93,7 +93,7 @@ export async function cleanup(): Promise<void> {
 /**
  * Truncate tables - remove all data but keep structure
  */
-export async function truncate(): Promise<void> {
+async function truncate(): Promise<void> {
     if (isWorkerMode) {
         // In worker mode, clear D1 tables by calling clearD1Tables from globalSetup
         const { clearD1Tables } = await import('../globalSetup.worker')
@@ -103,7 +103,7 @@ export async function truncate(): Promise<void> {
 
     // Auto-connect if not initialized
     if (!db) {
-        db = new Database(DB_CONFIG.path)
+        db = new Database(config.DB_CONFIG.path)
     }
 
     console.log('Truncating tables...')
@@ -128,7 +128,7 @@ export async function truncate(): Promise<void> {
 /**
  * Execute raw SQL query
  */
-export function query<T>(sql: string, params: any[] = []): T[] {
+function query<T>(sql: string, params: any[] = []): T[] {
     if (isWorkerMode) {
         throw new Error('Direct SQL queries not supported in worker mode')
     }
@@ -148,7 +148,7 @@ export function query<T>(sql: string, params: any[] = []): T[] {
 /**
  * Execute raw SQL statement (insert, update, delete)
  */
-export function execute(sql: string, params: any[] = []): Database.RunResult {
+function execute(sql: string, params: any[] = []): Database.RunResult {
     if (isWorkerMode) {
         throw new Error('Direct SQL execute not supported in worker mode')
     }
@@ -168,7 +168,7 @@ export function execute(sql: string, params: any[] = []): Database.RunResult {
 /**
  * Get database instance
  */
-export function getDB(): Database.Database {
+function getDB(): Database.Database {
     if (isWorkerMode) {
         throw new Error('getDB not supported in worker mode')
     }
@@ -182,7 +182,7 @@ export function getDB(): Database.Database {
 /**
  * Close database connection
  */
-export function close(): void {
+function close(): void {
     if (isWorkerMode) {
         console.log('[WORKER_MODE] close() - database managed by wrangler, no close needed')
         return
@@ -193,4 +193,14 @@ export function close(): void {
         db = null
         console.log('Database connection closed')
     }
+}
+
+export default {
+    init,
+    cleanup,
+    truncate,
+    query,
+    execute,
+    getDB,
+    close,
 }

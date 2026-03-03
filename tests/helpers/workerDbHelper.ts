@@ -57,7 +57,7 @@ class WorkerDBAdapter implements DBAdapter {
 /**
  * Initialize test database with migrations
  */
-export async function init(): Promise<void> {
+async function init(): Promise<void> {
     if (dbAdapter) {
         console.log('Database already initialized')
         return
@@ -76,7 +76,7 @@ export async function init(): Promise<void> {
 /**
  * Cleanup database - remove all data
  */
-export async function cleanup(): Promise<void> {
+async function cleanup(): Promise<void> {
     if (!dbAdapter) {
         console.log('Database not initialized, nothing to cleanup')
         return
@@ -102,7 +102,7 @@ export async function cleanup(): Promise<void> {
 /**
  * Truncate tables - remove all data but keep structure
  */
-export async function truncate(): Promise<void> {
+async function truncate(): Promise<void> {
     // Auto-connect if not initialized
     if (!dbAdapter) {
         dbAdapter = new WorkerDBAdapter()
@@ -128,7 +128,7 @@ export async function truncate(): Promise<void> {
 /**
  * Execute raw SQL query
  */
-export function query<T>(sql: string, params: any[] = []): T[] {
+function query<T>(sql: string, params: any[] = []): T[] {
     if (!dbAdapter) {
         throw new Error('Database not initialized')
     }
@@ -144,7 +144,7 @@ export function query<T>(sql: string, params: any[] = []): T[] {
 /**
  * Execute raw SQL statement (insert, update, delete)
  */
-export function execute(sql: string, params: any[] = []): void {
+function execute(sql: string, params: any[] = []): void {
     if (!dbAdapter) {
         throw new Error('Database not initialized')
     }
@@ -160,7 +160,7 @@ export function execute(sql: string, params: any[] = []): void {
 /**
  * Get database adapter instance
  */
-export function getDB(): DBAdapter {
+function getDB(): DBAdapter {
     if (!dbAdapter) {
         throw new Error('Database not initialized')
     }
@@ -170,10 +170,20 @@ export function getDB(): DBAdapter {
 /**
  * Close database connection
  */
-export function close(): void {
+function close(): void {
     if (dbAdapter) {
         dbAdapter.close()
         dbAdapter = null
         console.log('Worker database connection closed')
     }
+}
+
+export default {
+    init,
+    cleanup,
+    truncate,
+    query,
+    execute,
+    getDB,
+    close,
 }

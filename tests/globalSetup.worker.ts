@@ -1,6 +1,6 @@
 import { spawn, ChildProcess, execSync } from 'child_process'
-import config, { TEST_OPTIONS, logTest } from './config'
-import { startMockServer, stopMockServer } from './helpers/mockServer'
+import config from './config'
+import mockServer from './helpers/mockServer'
 
 // Worker mode uses wrangler dev on port 8787
 const WORKER_PORT = 8787
@@ -54,7 +54,7 @@ export async function setup(): Promise<void> {
 
     if (config.useMockServer) {
         console.log('Starting mock AI server...')
-        mockServerProcess = await startMockServer()
+        mockServerProcess = await mockServer.startMockServer()
         console.log('[GLOBAL_SETUP] Mock AI server started')
     }
 
@@ -72,12 +72,12 @@ export async function teardown(): Promise<void> {
     console.log('[GLOBAL_TEARDOWN] Test server stopped')
 
     if (mockServerProcess) {
-        await stopMockServer(mockServerProcess)
+        await mockServer.stopMockServer(mockServerProcess)
         mockServerProcess = null
         console.log('[GLOBAL_TEARDOWN] Mock AI server stopped')
     }
 
-    if (TEST_OPTIONS.cleanup) {
+    if (config.TEST_OPTIONS.cleanup) {
         console.log('[GLOBAL_TEARDOWN] Worker mode: D1 database cleanup skipped (managed by wrangler)')
     }
 
@@ -102,7 +102,7 @@ function startTestServer(): Promise<void> {
 
         testServerProcess.stdout?.on('data', (data) => {
             const output = data.toString().trim()
-            if (TEST_OPTIONS.verbose) {
+            if (config.TEST_OPTIONS.verbose) {
                 console.log('[SERVER]', output)
             }
             // 监听服务器启动成功的消息
@@ -120,7 +120,7 @@ function startTestServer(): Promise<void> {
             const error = data.toString().trim()
             // Some wrangler output goes to stderr but is not an error
             if (error.includes('⛅️') || error.includes('http://') || error.includes('GET')) {
-                if (TEST_OPTIONS.verbose) {
+                if (config.TEST_OPTIONS.verbose) {
                     console.log('[SERVER INFO]', error)
                 }
                 if (!serverStarted && (error.includes('Ready') || error.includes('localhost:' + WORKER_PORT))) {

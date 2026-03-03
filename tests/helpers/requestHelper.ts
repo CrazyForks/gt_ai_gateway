@@ -1,13 +1,12 @@
 import { fetch } from 'undici'
-import type { SERVER_CONFIG as ServerConfigType } from '../config'
 
 /**
  * Get server config dynamically to respect TEST_MODE at runtime
  */
-async function getServerConfig(): Promise<typeof ServerConfigType> {
+async function getServerConfig() {
   // Dynamic import to ensure TEST_MODE is evaluated at runtime
-  const { SERVER_CONFIG } = await import('../config')
-  return SERVER_CONFIG
+  const config = await import('../config')
+  return config.default.SERVER_CONFIG
 }
 
 /**
@@ -30,7 +29,7 @@ interface RequestResponse {
 /**
  * Make a generic HTTP request
  */
-export async function request(endpoint: string, options: RequestOptions = {}): Promise<RequestResponse> {
+async function request(endpoint: string, options: RequestOptions = {}): Promise<RequestResponse> {
   const serverConfig = await getServerConfig()
   const url = `${serverConfig.baseUrl}${endpoint}`
 
@@ -59,7 +58,7 @@ export async function request(endpoint: string, options: RequestOptions = {}): P
 /**
  * Make a GET request
  */
-export async function get(endpoint: string, token?: string): Promise<RequestResponse> {
+async function get(endpoint: string, token?: string): Promise<RequestResponse> {
   const headers: Record<string, string> = {}
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
@@ -70,7 +69,7 @@ export async function get(endpoint: string, token?: string): Promise<RequestResp
 /**
  * Make a POST request
  */
-export async function post(endpoint: string, body: any, token?: string): Promise<RequestResponse> {
+async function post(endpoint: string, body: any, token?: string): Promise<RequestResponse> {
   const headers: Record<string, string> = {}
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
@@ -85,7 +84,7 @@ export async function post(endpoint: string, body: any, token?: string): Promise
 /**
  * Make a POST request with x-api-key header
  */
-export async function postWithApiKey(
+async function postWithApiKey(
   endpoint: string,
   body: any,
   apiKey: string
@@ -103,7 +102,7 @@ export async function postWithApiKey(
 /**
  * Make a PUT request
  */
-export async function put(endpoint: string, body: any, token?: string): Promise<RequestResponse> {
+async function put(endpoint: string, body: any, token?: string): Promise<RequestResponse> {
   const headers: Record<string, string> = {}
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
@@ -118,7 +117,7 @@ export async function put(endpoint: string, body: any, token?: string): Promise<
 /**
  * Make a DELETE request
  */
-export async function del(endpoint: string, token?: string): Promise<RequestResponse> {
+async function del(endpoint: string, token?: string): Promise<RequestResponse> {
   const headers: Record<string, string> = {}
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
@@ -135,4 +134,13 @@ function tryParseJSON(str: string): any {
   } catch {
     return str
   }
+}
+
+export default {
+    request,
+    get,
+    post,
+    postWithApiKey,
+    put,
+    del,
 }

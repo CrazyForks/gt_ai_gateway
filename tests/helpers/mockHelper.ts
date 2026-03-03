@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { getCurrentUpstreamConfig, isRealMode } from '../config'
+import config from '../config'
 
 /**
  * Mock Data Generator
@@ -9,7 +9,7 @@ import { getCurrentUpstreamConfig, isRealMode } from '../config'
 /**
  * Generate a mock user
  */
-export function generateUser(overrides: Partial<{ name: string; token: string }> = {}) {
+function generateUser(overrides: Partial<{ name: string; token: string }> = {}) {
   return {
     name: overrides.name || `Test User ${Date.now()}`,
     token: overrides.token || randomUUID(),
@@ -19,7 +19,7 @@ export function generateUser(overrides: Partial<{ name: string; token: string }>
 /**
  * Generate a mock vendor
  */
-export function generateVendor(overrides: Partial<{
+function generateVendor(overrides: Partial<{
   type: string
   name: string
   token: string
@@ -38,35 +38,35 @@ export function generateVendor(overrides: Partial<{
 /**
  * Generate a mock OpenAI vendor
  */
-export function generateOpenAIVendor() {
-  const config = getCurrentUpstreamConfig()
+function generateOpenAIVendor() {
+  const upstreamConfig = config.getCurrentUpstreamConfig()
   return generateVendor({
     type: 'other',
-    name: isRealMode ? 'OpenAI' : 'Mock OpenAI',
+    name: config.isRealMode ? 'OpenAI' : 'Mock OpenAI',
     api_format: 'openai',
-    url: config.openai.url,
-    token: isRealMode ? config.openai.apiKey : `openai-token-${randomUUID()}`,
+    url: upstreamConfig.openai.url,
+    token: config.isRealMode ? upstreamConfig.openai.apiKey : `openai-token-${randomUUID()}`,
   })
 }
 
 /**
  * Generate a mock Anthropic vendor
  */
-export function generateAnthropicVendor() {
-  const config = getCurrentUpstreamConfig()
+function generateAnthropicVendor() {
+  const upstreamConfig = config.getCurrentUpstreamConfig()
   return generateVendor({
     type: 'other',
-    name: isRealMode ? 'Anthropic' : 'Mock Anthropic',
+    name: config.isRealMode ? 'Anthropic' : 'Mock Anthropic',
     api_format: 'anthropic',
-    url: config.anthropic.url,
-    token: isRealMode ? config.anthropic.apiKey : `anthropic-token-${randomUUID()}`,
+    url: upstreamConfig.anthropic.url,
+    token: config.isRealMode ? upstreamConfig.anthropic.apiKey : `anthropic-token-${randomUUID()}`,
   })
 }
 
 /**
  * Generate a mock model
  */
-export function generateModel(vendorId: number, overrides: Partial<{ name: string }> = {}) {
+function generateModel(vendorId: number, overrides: Partial<{ name: string }> = {}) {
   return {
     name: overrides.name || `test-model-${Date.now()}`,
     vendor_id: vendorId,
@@ -76,14 +76,14 @@ export function generateModel(vendorId: number, overrides: Partial<{ name: strin
 /**
  * Generate a mock OpenAI chat request
  */
-export function generateOpenAIChatRequest(overrides: Partial<{
+function generateOpenAIChatRequest(overrides: Partial<{
   model: string
   messages: any[]
   stream: boolean
 }> = {}) {
-  const config = getCurrentUpstreamConfig()
+  const upstreamConfig = config.getCurrentUpstreamConfig()
   return {
-    model: overrides.model || config.openai.model,
+    model: overrides.model || upstreamConfig.openai.model,
     messages: overrides.messages || [
       { role: 'user', content: 'Hello!' },
     ],
@@ -94,15 +94,15 @@ export function generateOpenAIChatRequest(overrides: Partial<{
 /**
  * Generate a mock Anthropic messages request
  */
-export function generateAnthropicMessageRequest(overrides: Partial<{
+function generateAnthropicMessageRequest(overrides: Partial<{
   model: string
   messages: any[]
   stream: boolean
   max_tokens: number
 }> = {}) {
-  const config = getCurrentUpstreamConfig()
+  const upstreamConfig = config.getCurrentUpstreamConfig()
   return {
-    model: overrides.model || config.anthropic.model,
+    model: overrides.model || upstreamConfig.anthropic.model,
     messages: overrides.messages || [
       { role: 'user', content: 'Hello!' },
     ],
@@ -114,7 +114,7 @@ export function generateAnthropicMessageRequest(overrides: Partial<{
 /**
  * Generate a random string
  */
-export function randomString(length: number = 10): string {
+function randomString(length: number = 10): string {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
   let result = ''
   for (let i = 0; i < length; i++) {
@@ -126,13 +126,26 @@ export function randomString(length: number = 10): string {
 /**
  * Generate a random number
  */
-export function randomNumber(min: number = 1, max: number = 100): number {
+function randomNumber(min: number = 1, max: number = 100): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
 /**
  * Generate a random email
  */
-export function randomEmail(): string {
+function randomEmail(): string {
   return `${randomString(8).toLowerCase()}@example.com`
+}
+
+export default {
+    generateUser,
+    generateVendor,
+    generateOpenAIVendor,
+    generateAnthropicVendor,
+    generateModel,
+    generateOpenAIChatRequest,
+    generateAnthropicMessageRequest,
+    randomString,
+    randomNumber,
+    randomEmail,
 }

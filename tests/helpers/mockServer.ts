@@ -13,7 +13,7 @@ let isRunning = false
 /**
  * Start the mock AI server
  */
-export async function startMockServer(port: number = DEFAULT_MOCK_PORT): Promise<any> {
+async function startMockServer(port: number = DEFAULT_MOCK_PORT): Promise<any> {
   if (isRunning) {
     console.log(`Mock server already running on port ${port}`)
     return null
@@ -39,7 +39,7 @@ export async function startMockServer(port: number = DEFAULT_MOCK_PORT): Promise
 /**
  * Stop the mock AI server
  */
-export async function stopMockServer(serverInstance: any): Promise<void> {
+async function stopMockServer(serverInstance: any): Promise<void> {
   if (serverInstance) {
     return new Promise((resolve) => {
       serverInstance.close(() => {
@@ -54,7 +54,7 @@ export async function stopMockServer(serverInstance: any): Promise<void> {
 /**
  * Check if mock server is running
  */
-export function isMockServerRunning(): boolean {
+function isMockServerRunning(): boolean {
   return isRunning
 }
 
@@ -330,4 +330,10 @@ function handleNotFound(res: ServerResponse): void {
 function handleBadRequest(res: ServerResponse, message: string): void {
   res.writeHead(400, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify({ error: message }))
+}
+
+export default {
+    startMockServer,
+    stopMockServer,
+    isMockServerRunning,
 }

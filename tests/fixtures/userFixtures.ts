@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto'
  * User Test Data Fixtures
  */
 
-export const USER_FIXTURES = {
+const USER_FIXTURES = {
   basic: {
     name: 'Test User',
     token: randomUUID(),
@@ -32,9 +32,14 @@ export const USER_FIXTURES = {
   },
 }
 
-export function createRandomUser(name?: string, token?: string) {
+function createRandomUser(name?: string, token?: string) {
   return {
     name: name || `Test User ${Date.now()}`,
     token: token || randomUUID(),
   }
+}
+
+export default {
+    USER_FIXTURES,
+    createRandomUser,
 }

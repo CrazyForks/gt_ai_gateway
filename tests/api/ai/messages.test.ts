@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { get, post, postWithApiKey } from '../../helpers/requestHelper'
-import { generateUser, generateAnthropicMessageRequest } from '../../helpers/mockHelper'
-import { VENDOR_FIXTURES } from '../../fixtures/vendorFixtures'
-import { createRandomModel } from '../../fixtures/modelFixtures'
-import { truncateDatabase } from '../../testHelpers'
-import { getCurrentUpstreamConfig } from '../../config'
+import requestHelper from '../../helpers/requestHelper'
+import mockHelper from '../../helpers/mockHelper'
+import vendorFixtures from '../../fixtures/vendorFixtures'
+import modelFixtures from '../../fixtures/modelFixtures'
+import testHelpers from '../../testHelpers'
+import config from '../../config'
 
 /**
  * AI Messages Endpoint Tests (Anthropic)
@@ -18,40 +18,40 @@ let anthropicModelName: string
 
 describe('AI Messages API (Anthropic)', () => {
     beforeAll(async () => {
-        await truncateDatabase()
+        await testHelpers.truncateDatabase()
 
         // Create test user
-        const userResponse = await post('/user/create.json', generateUser())
+        const userResponse = await requestHelper.post('/user/create.json', mockHelper.generateUser())
         testUserId = userResponse.body.id
         testUserToken = userResponse.body.token
 
         // Create Anthropic vendor
-        const anthropicVendor = await post('/vendor/create.json', VENDOR_FIXTURES.anthropic())
+        const anthropicVendor = await requestHelper.post('/vendor/create.json', vendorFixtures.VENDOR_FIXTURES.anthropic())
         console.log('Created vendor:', anthropicVendor.body)
         anthropicVendorId = anthropicVendor.body.id
 
         // Get model name from config
-        const config = getCurrentUpstreamConfig()
-        anthropicModelName = config.anthropic.model
+        const upstreamConfig = config.getCurrentUpstreamConfig()
+        anthropicModelName = upstreamConfig.anthropic.model
 
         // Create Anthropic model
-        const anthropicModel = await post('/model/create.json', createRandomModel(anthropicVendorId, anthropicModelName))
+        const anthropicModel = await requestHelper.post('/model/create.json', modelFixtures.createRandomModel(anthropicVendorId, anthropicModelName))
         console.log('Created model:', anthropicModel.body)
         anthropicModelId = anthropicModel.body.id
 
         // Verify vendor creation
-        const vendorGet = await get(`/vendor/${anthropicVendorId}`)
+        const vendorGet = await requestHelper.get(`/vendor/${anthropicVendorId}`)
         console.log('Retrieved vendor:', vendorGet.body)
     })
 
     describe('POST /v1/messages', () => {
         it('should handle successful Anthropic message request with x-api-key', async () => {
-            const messageRequest = generateAnthropicMessageRequest({
+            const messageRequest = mockHelper.generateAnthropicMessageRequest({
                 model: anthropicModelName,
                 stream: false,
             })
 
-            const response = await postWithApiKey('/v1/messages', messageRequest, testUserToken)
+            const response = await requestHelper.postWithApiKey('/v1/messages', messageRequest, testUserToken)
 
             if (response.status !== 200) {
                 console.log('ERROR body:', response.body)
@@ -71,7 +71,7 @@ describe('AI Messages API (Anthropic)', () => {
             expect(response.body).toHaveProperty('usage')
 
             // Verify record was created
-            const recordsResponse = await get('/record/latest.json?limit=1')
+            const recordsResponse = await requestHelper.get('/record/latest.json?limit=1')
             expect(recordsResponse.status).toBe(200)
             expect(recordsResponse.body.length).toBeGreaterThan(0)
             const latestRecord = recordsResponse.body[0]
@@ -95,12 +95,12 @@ describe('AI Messages API (Anthropic)', () => {
         }, 30000)
 
         it('should handle successful Anthropic message request with Authorization header', async () => {
-            const messageRequest = generateAnthropicMessageRequest({
+            const messageRequest = mockHelper.generateAnthropicMessageRequest({
                 model: anthropicModelName,
                 stream: false,
             })
 
-            const response = await post('/v1/messages', messageRequest, testUserToken)
+            const response = await requestHelper.post('/v1/messages', messageRequest, testUserToken)
 
             expect(response.status).toBe(200)
             expect(response.body.type).toBe('message')
@@ -108,12 +108,12 @@ describe('AI Messages API (Anthropic)', () => {
         }, 30000)
 
         it('should handle streaming Anthropic message request', async () => {
-            const messageRequest = generateAnthropicMessageRequest({
+            const messageRequest = mockHelper.generateAnthropicMessageRequest({
                 model: anthropicModelName,
                 stream: true,
             })
 
-            const response = await postWithApiKey('/v1/messages', messageRequest, testUserToken)
+            const response = await requestHelper.postWithApiKey('/v1/messages', messageRequest, testUserToken)
 
             expect(response.status).toBe(200)
             expect(typeof response.body).toBe('string')
@@ -123,7 +123,7 @@ describe('AI Messages API (Anthropic)', () => {
             expect(response.body).toContain('message_stop')
 
             // Verify record was created for streaming request
-            const recordsResponse = await get('/record/latest.json?limit=1')
+            const recordsResponse = await requestHelper.get('/record/latest.json?limit=1')
             expect(recordsResponse.status).toBe(200)
             expect(recordsResponse.body.length).toBeGreaterThan(0)
             const latestRecord = recordsResponse.body[0]
@@ -144,7 +144,7 @@ describe('AI Messages API (Anthropic)', () => {
         }, 30000)
 
         it('should handle multiple messages in request', async () => {
-            const messageRequest = generateAnthropicMessageRequest({
+            const messageRequest = mockHelper.generateAnthropicMessageRequest({
                 model: anthropicModelName,
                 stream: false,
                 messages: [
@@ -154,7 +154,7 @@ describe('AI Messages API (Anthropic)', () => {
                 ],
             })
 
-            const response = await postWithApiKey('/v1/messages', messageRequest, testUserToken)
+            const response = await requestHelper.postWithApiKey('/v1/messages', messageRequest, testUserToken)
 
             expect(response.status).toBe(200)
             expect(response.body.type).toBe('message')
@@ -162,13 +162,13 @@ describe('AI Messages API (Anthropic)', () => {
         }, 30000)
 
         it('should handle custom max_tokens value', async () => {
-            const messageRequest = generateAnthropicMessageRequest({
+            const messageRequest = mockHelper.generateAnthropicMessageRequest({
                 model: anthropicModelName,
                 stream: false,
                 max_tokens: 512,
             })
 
-            const response = await postWithApiKey('/v1/messages', messageRequest, testUserToken)
+            const response = await requestHelper.postWithApiKey('/v1/messages', messageRequest, testUserToken)
 
             expect(response.status).toBe(200)
             expect(response.body.type).toBe('message')

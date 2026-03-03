@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { post, postWithApiKey } from '../../helpers/requestHelper'
-import { generateUser, generateOpenAIChatRequest, generateAnthropicMessageRequest } from '../../helpers/mockHelper'
-import { VENDOR_FIXTURES } from '../../fixtures/vendorFixtures'
-import { createRandomModel } from '../../fixtures/modelFixtures'
-import { truncateDatabase } from '../../testHelpers'
-import { getCurrentUpstreamConfig } from '../../config'
+import requestHelper from '../../helpers/requestHelper'
+import mockHelper from '../../helpers/mockHelper'
+import vendorFixtures from '../../fixtures/vendorFixtures'
+import modelFixtures from '../../fixtures/modelFixtures'
+import testHelpers from '../../testHelpers'
+import config from '../../config'
 
 /**
  * AI Endpoint Negative Tests
@@ -18,37 +18,37 @@ let anthropicModelName: string
 
 describe('AI Chat API (Negative)', () => {
   beforeAll(async () => {
-    await truncateDatabase()
+    await testHelpers.truncateDatabase()
 
     // Create test user
-    const userResponse = await post('/user/create.json', generateUser())
+    const userResponse = await requestHelper.post('/user/create.json', mockHelper.generateUser())
     testUserToken = userResponse.body.token
 
     // Create OpenAI vendor
-    const openaiVendor = await post('/vendor/create.json', VENDOR_FIXTURES.openai())
+    const openaiVendor = await requestHelper.post('/vendor/create.json', vendorFixtures.VENDOR_FIXTURES.openai())
     openaiVendorId = openaiVendor.body.id
 
     // Create Anthropic vendor
-    const anthropicVendor = await post('/vendor/create.json', VENDOR_FIXTURES.anthropic())
+    const anthropicVendor = await requestHelper.post('/vendor/create.json', vendorFixtures.VENDOR_FIXTURES.anthropic())
     anthropicVendorId = anthropicVendor.body.id
 
     // Get model names from config
-    const config = getCurrentUpstreamConfig()
-    openaiModelName = config.openai.model
-    anthropicModelName = config.anthropic.model
+    const upstreamConfig = config.getCurrentUpstreamConfig()
+    openaiModelName = upstreamConfig.openai.model
+    anthropicModelName = upstreamConfig.anthropic.model
 
     // Create OpenAI model
-    await post('/model/create.json', createRandomModel(openaiVendorId, openaiModelName))
+    await requestHelper.post('/model/create.json', modelFixtures.createRandomModel(openaiVendorId, openaiModelName))
 
     // Create Anthropic model
-    await post('/model/create.json', createRandomModel(anthropicVendorId, anthropicModelName))
+    await requestHelper.post('/model/create.json', modelFixtures.createRandomModel(anthropicVendorId, anthropicModelName))
   })
 
   describe('POST /v1/chat/completions', () => {
     it('should return 401 when Authorization header is missing', async () => {
-      const chatRequest = generateOpenAIChatRequest({ model: openaiModelName })
+      const chatRequest = mockHelper.generateOpenAIChatRequest({ model: openaiModelName })
 
-      const response = await post('/v1/chat/completions', chatRequest, undefined)
+      const response = await requestHelper.post('/v1/chat/completions', chatRequest, undefined)
 
       expect(response.status).toBe(401)
       expect(response.body).toHaveProperty('error')
@@ -56,9 +56,9 @@ describe('AI Chat API (Negative)', () => {
     }, 30000)
 
     it('should return 401 when token is invalid', async () => {
-      const chatRequest = generateOpenAIChatRequest({ model: openaiModelName })
+      const chatRequest = mockHelper.generateOpenAIChatRequest({ model: openaiModelName })
 
-      const response = await post('/v1/chat/completions', chatRequest, 'invalid-token-12345')
+      const response = await requestHelper.post('/v1/chat/completions', chatRequest, 'invalid-token-12345')
 
       expect(response.status).toBe(401)
       expect(response.body).toHaveProperty('error')
@@ -66,9 +66,9 @@ describe('AI Chat API (Negative)', () => {
     }, 30000)
 
     it('should return 401 when model does not exist', async () => {
-      const chatRequest = generateOpenAIChatRequest({ model: 'non-existent-model' })
+      const chatRequest = mockHelper.generateOpenAIChatRequest({ model: 'non-existent-model' })
 
-      const response = await post('/v1/chat/completions', chatRequest, testUserToken)
+      const response = await requestHelper.post('/v1/chat/completions', chatRequest, testUserToken)
 
       expect(response.status).toBe(401)
       expect(response.body).toHaveProperty('error')
@@ -78,9 +78,9 @@ describe('AI Chat API (Negative)', () => {
 
   describe('POST /v1/messages (Anthropic)', () => {
     it('should return 401 when x-api-key header is missing', async () => {
-      const messageRequest = generateAnthropicMessageRequest({ model: anthropicModelName })
+      const messageRequest = mockHelper.generateAnthropicMessageRequest({ model: anthropicModelName })
 
-      const response = await post('/v1/messages', messageRequest, undefined)
+      const response = await requestHelper.post('/v1/messages', messageRequest, undefined)
 
       expect(response.status).toBe(401)
       expect(response.body).toHaveProperty('error')
@@ -88,9 +88,9 @@ describe('AI Chat API (Negative)', () => {
     }, 30000)
 
     it('should return 401 when token is invalid', async () => {
-      const messageRequest = generateAnthropicMessageRequest({ model: anthropicModelName })
+      const messageRequest = mockHelper.generateAnthropicMessageRequest({ model: anthropicModelName })
 
-      const response = await postWithApiKey('/v1/messages', messageRequest, 'invalid-token-12345')
+      const response = await requestHelper.postWithApiKey('/v1/messages', messageRequest, 'invalid-token-12345')
 
       expect(response.status).toBe(401)
       expect(response.body).toHaveProperty('error')
@@ -98,9 +98,9 @@ describe('AI Chat API (Negative)', () => {
     }, 30000)
 
     it('should return 401 when model does not exist', async () => {
-      const messageRequest = generateAnthropicMessageRequest({ model: 'non-existent-model' })
+      const messageRequest = mockHelper.generateAnthropicMessageRequest({ model: 'non-existent-model' })
 
-      const response = await postWithApiKey('/v1/messages', messageRequest, testUserToken)
+      const response = await requestHelper.postWithApiKey('/v1/messages', messageRequest, testUserToken)
 
       expect(response.status).toBe(401)
       expect(response.body).toHaveProperty('error')

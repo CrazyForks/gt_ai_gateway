@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { get, post } from '../../helpers/requestHelper'
-import { truncateDatabase } from '../../testHelpers'
+import requestHelper from '../../helpers/requestHelper'
+import testHelpers from '../../testHelpers'
 
 /**
  * Vendor Endpoint Negative Tests
@@ -8,7 +8,7 @@ import { truncateDatabase } from '../../testHelpers'
 
 describe('Vendor API (Negative)', () => {
     beforeAll(async () => {
-        await truncateDatabase()
+        await testHelpers.truncateDatabase()
     })
   describe('POST /vendor/create.json', () => {
     it('should return error when required fields are missing', async () => {
@@ -16,7 +16,7 @@ describe('Vendor API (Negative)', () => {
         name: 'Test Vendor',
         // Missing: type, token, url, api_format
       }
-      const response = await post('/vendor/create.json', vendorData)
+      const response = await requestHelper.post('/vendor/create.json', vendorData)
 
       expect(response.status).toBeGreaterThanOrEqual(400)
     })
@@ -29,7 +29,7 @@ describe('Vendor API (Negative)', () => {
         url: 'https://example.com',
         api_format: 'invalid-format',
       }
-      const response = await post('/vendor/create.json', vendorData)
+      const response = await requestHelper.post('/vendor/create.json', vendorData)
 
       expect(response.status).toBeGreaterThanOrEqual(400)
     })
@@ -42,7 +42,7 @@ describe('Vendor API (Negative)', () => {
         api_format: 'openai',
         // Missing: type
       }
-      const response = await post('/vendor/create.json', vendorData)
+      const response = await requestHelper.post('/vendor/create.json', vendorData)
 
       expect(response.status).toBeGreaterThanOrEqual(400)
     })
@@ -55,7 +55,7 @@ describe('Vendor API (Negative)', () => {
         api_format: 'openai',
         // Missing: url
       }
-      const response = await post('/vendor/create.json', vendorData)
+      const response = await requestHelper.post('/vendor/create.json', vendorData)
 
       expect(response.status).toBeGreaterThanOrEqual(400)
     })
@@ -63,28 +63,28 @@ describe('Vendor API (Negative)', () => {
 
   describe('GET /vendor/:id', () => {
     it('should return error for non-existent vendor ID', async () => {
-      const response = await get('/vendor/99999')
+      const response = await requestHelper.get('/vendor/99999')
 
       expect(response.status).toBeGreaterThanOrEqual(400)
       expect(response.body).toHaveProperty('error')
     })
 
     it('should return error for invalid ID format', async () => {
-      const response = await get('/vendor/invalid-id')
+      const response = await requestHelper.get('/vendor/invalid-id')
 
       expect(response.status).toBeGreaterThanOrEqual(400)
       expect(response.body).toHaveProperty('error')
     })
 
     it('should return error for negative ID', async () => {
-      const response = await get('/vendor/-1')
+      const response = await requestHelper.get('/vendor/-1')
 
       expect(response.status).toBeGreaterThanOrEqual(400)
       expect(response.body).toHaveProperty('error')
     })
 
     it('should return error for zero ID', async () => {
-      const response = await get('/vendor/0')
+      const response = await requestHelper.get('/vendor/0')
 
       expect(response.status).toBeGreaterThanOrEqual(400)
       expect(response.body).toHaveProperty('error')

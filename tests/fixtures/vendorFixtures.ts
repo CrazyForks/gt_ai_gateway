@@ -1,28 +1,28 @@
 import { randomUUID } from 'crypto'
-import { getCurrentUpstreamConfig, isRealMode } from '../config'
+import config from '../config'
 
 /**
  * Vendor Test Data Fixtures
  */
 
-export const VENDOR_FIXTURES = {
+const VENDOR_FIXTURES = {
   openai: () => {
-    const config = getCurrentUpstreamConfig()
+    const upstreamConfig = config.getCurrentUpstreamConfig()
     return {
       type: 'other',
-      name: isRealMode ? 'OpenAI' : 'Mock OpenAI',
-      token: isRealMode ? config.openai.apiKey : `openai-token-${randomUUID()}`,
-      url: config.openai.url,
+      name: config.isRealMode ? 'OpenAI' : 'Mock OpenAI',
+      token: config.isRealMode ? upstreamConfig.openai.apiKey : `openai-token-${randomUUID()}`,
+      url: upstreamConfig.openai.url,
       api_format: 'openai',
     }
   },
   anthropic: () => {
-    const config = getCurrentUpstreamConfig()
+    const upstreamConfig = config.getCurrentUpstreamConfig()
     return {
       type: 'other',
-      name: isRealMode ? 'Anthropic' : 'Mock Anthropic',
-      token: isRealMode ? config.anthropic.apiKey : `anthropic-token-${randomUUID()}`,
-      url: config.anthropic.url,
+      name: config.isRealMode ? 'Anthropic' : 'Mock Anthropic',
+      token: config.isRealMode ? upstreamConfig.anthropic.apiKey : `anthropic-token-${randomUUID()}`,
+      url: upstreamConfig.anthropic.url,
       api_format: 'anthropic',
     }
   },
@@ -49,7 +49,7 @@ export const VENDOR_FIXTURES = {
   },
 }
 
-export function createRandomVendor(overrides: Partial<{
+function createRandomVendor(overrides: Partial<{
   type: string
   name: string
   token: string
@@ -63,4 +63,9 @@ export function createRandomVendor(overrides: Partial<{
     url: overrides.url || 'https://api.example.com/v1/chat',
     api_format: overrides.api_format || 'openai',
   }
+}
+
+export default {
+    VENDOR_FIXTURES,
+    createRandomVendor,
 }

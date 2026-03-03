@@ -32,12 +32,12 @@ const WORKER_SERVER_CONFIG = {
 /**
  * Server Configuration - dynamically selected based on TEST_MODE
  */
-export const SERVER_CONFIG = TEST_MODE === 'worker' ? WORKER_SERVER_CONFIG : NODE_SERVER_CONFIG
+const SERVER_CONFIG = TEST_MODE === 'worker' ? WORKER_SERVER_CONFIG : NODE_SERVER_CONFIG
 
 /**
  * Worker Configuration
  */
-export const WORKER_CONFIG = {
+const WORKER_CONFIG = {
   port: 8787,
   startupTimeout: 30000, // 30 seconds for wrangler dev startup
 }
@@ -45,7 +45,7 @@ export const WORKER_CONFIG = {
 /**
  * Database Configuration
  */
-export const DB_CONFIG = {
+const DB_CONFIG = {
   path: process.env.TEST_DB_PATH || join(PROJECT_ROOT, 'test.db'),
   mode: process.env.TEST_DB_MODE || 'local',
 }
@@ -81,22 +81,22 @@ const REAL_API_CONFIG = loadRealApiConfig()
 /**
  * Upstream Mode Type
  */
-export type UpstreamMode = 'mock' | 'real'
+type UpstreamMode = 'mock' | 'real'
 
 /**
  * Check if real API mode is enabled
  */
-export const isRealMode = REAL_API_MODE
+const isRealMode = REAL_API_MODE
 
 /**
  * Check if mock server is enabled
  */
-export const useMockServer = !REAL_API_MODE
+const useMockServer = !REAL_API_MODE
 
 /**
  * Upstream Service Configuration
  */
-export const UPSTREAM_CONFIG = {
+const UPSTREAM_CONFIG = {
   openai: {
     url: REAL_API_CONFIG?.openai?.url || process.env.TEST_UPSTREAM_OPENAI_URL || 'https://api.openai.com/v1/chat/completions',
     apiKey: REAL_API_CONFIG?.openai?.apiKey || process.env.TEST_UPSTREAM_OPENAI_API_KEY || '',
@@ -116,7 +116,7 @@ export const UPSTREAM_CONFIG = {
 /**
  * Test Options
  */
-export const TEST_OPTIONS = {
+const TEST_OPTIONS = {
   cleanup: process.env.TEST_CLEANUP !== 'false',
   timeout: parseInt(process.env.TEST_TIMEOUT || '30000', 10),
   verbose: process.env.TEST_VERBOSE === 'true',
@@ -125,14 +125,14 @@ export const TEST_OPTIONS = {
 /**
  * Get current upstream mode
  */
-export const getUpstreamMode = (): UpstreamMode => {
+function getUpstreamMode(): UpstreamMode {
     return isRealMode ? 'real' : 'mock'
 }
 
 /**
  * Get current upstream configuration based on mode
  */
-export const getCurrentUpstreamConfig = () => {
+function getCurrentUpstreamConfig() {
     const mode = getUpstreamMode()
 
     if (mode === 'real') {
@@ -159,7 +159,7 @@ export const getCurrentUpstreamConfig = () => {
 /**
  * Logging helper for verbose mode
  */
-export function logTest(...args: any[]) {
+function logTest(...args: any[]) {
   if (TEST_OPTIONS.verbose) {
     console.log('[TEST]', ...args)
   }

@@ -1,18 +1,18 @@
-import { getCurrentUpstreamConfig } from '../config'
+import config from '../config'
 
 /**
  * Model Test Data Fixtures
  */
 
-export const MODEL_FIXTURES = {
+const MODEL_FIXTURES = {
   basic: (vendorId: number) => ({
     name: 'test-model',
     vendor_id: vendorId,
   }),
   gpt35: (vendorId: number) => {
-    const config = getCurrentUpstreamConfig()
+    const upstreamConfig = config.getCurrentUpstreamConfig()
     return {
-      name: config.openai.model,
+      name: upstreamConfig.openai.model,
       vendor_id: vendorId,
     }
   },
@@ -21,9 +21,9 @@ export const MODEL_FIXTURES = {
     vendor_id: vendorId,
   }),
   claudeHaiku: (vendorId: number) => {
-    const config = getCurrentUpstreamConfig()
+    const upstreamConfig = config.getCurrentUpstreamConfig()
     return {
-      name: config.anthropic.model,
+      name: upstreamConfig.anthropic.model,
       vendor_id: vendorId,
     }
   },
@@ -33,9 +33,14 @@ export const MODEL_FIXTURES = {
   }),
 }
 
-export function createRandomModel(vendorId: number, name?: string) {
+function createRandomModel(vendorId: number, name?: string) {
   return {
     name: name || `test-model-${Date.now()}`,
     vendor_id: vendorId,
   }
+}
+
+export default {
+    MODEL_FIXTURES,
+    createRandomModel,
 }

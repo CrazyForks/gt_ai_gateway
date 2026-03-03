@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { post, get } from '../../helpers/requestHelper'
-import { generateUser, generateOpenAIChatRequest, generateAnthropicMessageRequest } from '../../helpers/mockHelper'
-import { VENDOR_FIXTURES } from '../../fixtures/vendorFixtures'
-import { createRandomModel } from '../../fixtures/modelFixtures'
-import { truncateDatabase } from '../../testHelpers'
-import { getCurrentUpstreamConfig } from '../../config'
+import requestHelper from '../../helpers/requestHelper'
+import mockHelper from '../../helpers/mockHelper'
+import vendorFixtures from '../../fixtures/vendorFixtures'
+import modelFixtures from '../../fixtures/modelFixtures'
+import testHelpers from '../../testHelpers'
+import config from '../../config'
 
 /**
  * AI Chat Endpoint Tests
@@ -21,43 +21,43 @@ let anthropicModelName: string
 
 describe('AI Chat API', () => {
     beforeAll(async () => {
-        await truncateDatabase()
+        await testHelpers.truncateDatabase()
 
         // Create test user
-        const userResponse = await post('/user/create.json', generateUser())
+        const userResponse = await requestHelper.post('/user/create.json', mockHelper.generateUser())
         testUserId = userResponse.body.id
         testUserToken = userResponse.body.token
 
         // Create OpenAI vendor
-        const openaiVendor = await post('/vendor/create.json', VENDOR_FIXTURES.openai())
+        const openaiVendor = await requestHelper.post('/vendor/create.json', vendorFixtures.VENDOR_FIXTURES.openai())
         openaiVendorId = openaiVendor.body.id
 
         // Create Anthropic vendor
-        const anthropicVendor = await post('/vendor/create.json', VENDOR_FIXTURES.anthropic())
+        const anthropicVendor = await requestHelper.post('/vendor/create.json', vendorFixtures.VENDOR_FIXTURES.anthropic())
         anthropicVendorId = anthropicVendor.body.id
 
         // Get model names from config
-        const config = getCurrentUpstreamConfig()
-        openaiModelName = config.openai.model
-        anthropicModelName = config.anthropic.model
+        const upstreamConfig = config.getCurrentUpstreamConfig()
+        openaiModelName = upstreamConfig.openai.model
+        anthropicModelName = upstreamConfig.anthropic.model
 
         // Create OpenAI model
-        const openaiModel = await post('/model/create.json', createRandomModel(openaiVendorId, openaiModelName))
+        const openaiModel = await requestHelper.post('/model/create.json', modelFixtures.createRandomModel(openaiVendorId, openaiModelName))
         openaiModelId = openaiModel.body.id
 
         // Create Anthropic model
-        const anthropicModel = await post('/model/create.json', createRandomModel(anthropicVendorId, anthropicModelName))
+        const anthropicModel = await requestHelper.post('/model/create.json', modelFixtures.createRandomModel(anthropicVendorId, anthropicModelName))
         anthropicModelId = anthropicModel.body.id
     })
 
     describe('POST /v1/chat/completions', () => {
         it('should handle successful OpenAI chat request', async () => {
-            const chatRequest = generateOpenAIChatRequest({
+            const chatRequest = mockHelper.generateOpenAIChatRequest({
                 model: openaiModelName,
                 stream: false,
             })
 
-            const response = await post('/v1/chat/completions', chatRequest, testUserToken)
+            const response = await requestHelper.post('/v1/chat/completions', chatRequest, testUserToken)
 
             expect(response.status).toBe(200)
             expect(response.body).toHaveProperty('id')
@@ -73,7 +73,7 @@ describe('AI Chat API', () => {
             expect(response.body).toHaveProperty('usage')
 
             // Verify record was created
-            const recordsResponse = await get('/record/latest.json?limit=1')
+            const recordsResponse = await requestHelper.get('/record/latest.json?limit=1')
             expect(recordsResponse.status).toBe(200)
             expect(recordsResponse.body.length).toBeGreaterThan(0)
             const latestRecord = recordsResponse.body[0]
@@ -101,12 +101,12 @@ describe('AI Chat API', () => {
         }, 30000)
 
         it('should handle streaming OpenAI chat request', async () => {
-            const chatRequest = generateOpenAIChatRequest({
+            const chatRequest = mockHelper.generateOpenAIChatRequest({
                 model: openaiModelName,
                 stream: true,
             })
 
-            const response = await post('/v1/chat/completions', chatRequest, testUserToken)
+            const response = await requestHelper.post('/v1/chat/completions', chatRequest, testUserToken)
 
             expect(response.status).toBe(200)
             expect(typeof response.body).toBe('string')
@@ -115,7 +115,7 @@ describe('AI Chat API', () => {
             expect(response.body).toContain('[DONE]')
 
             // Verify record was created for streaming request
-            const recordsResponse = await get('/record/latest.json?limit=1')
+            const recordsResponse = await requestHelper.get('/record/latest.json?limit=1')
             expect(recordsResponse.status).toBe(200)
             expect(recordsResponse.body.length).toBeGreaterThan(0)
             const latestRecord = recordsResponse.body[0]
@@ -137,7 +137,7 @@ describe('AI Chat API', () => {
         }, 30000)
 
         it('should handle multiple messages in chat request', async () => {
-            const chatRequest = generateOpenAIChatRequest({
+            const chatRequest = mockHelper.generateOpenAIChatRequest({
                 model: openaiModelName,
                 stream: false,
                 messages: [
@@ -148,7 +148,7 @@ describe('AI Chat API', () => {
                 ],
             })
 
-            const response = await post('/v1/chat/completions', chatRequest, testUserToken)
+            const response = await requestHelper.post('/v1/chat/completions', chatRequest, testUserToken)
 
             expect(response.status).toBe(200)
             expect(response.body.choices[0].message.role).toBe('assistant')

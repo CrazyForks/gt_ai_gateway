@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest'
-import { get, post } from '../../helpers/requestHelper'
-import { VENDOR_FIXTURES } from '../../fixtures/vendorFixtures'
-import { createRandomModel } from '../../fixtures/modelFixtures'
-import { truncateDatabase } from '../../testHelpers'
+import requestHelper from '../../helpers/requestHelper'
+import vendorFixtures from '../../fixtures/vendorFixtures'
+import modelFixtures from '../../fixtures/modelFixtures'
+import testHelpers from '../../testHelpers'
 
 /**
  * Model Endpoint Negative Tests
@@ -14,14 +14,14 @@ let existingVendorId: number
 
 describe('Model API (Negative)', () => {
   beforeAll(async () => {
-    await truncateDatabase()
+    await testHelpers.truncateDatabase()
 
     // Create a vendor for model tests
-    const vendor = await post('/vendor/create.json', VENDOR_FIXTURES.openai)
+    const vendor = await requestHelper.post('/vendor/create.json', vendorFixtures.VENDOR_FIXTURES.openai())
     existingVendorId = vendor.body.id
 
     // Create an existing model
-    const model = await post('/model/create.json', {
+    const model = await requestHelper.post('/model/create.json', {
       name: 'duplicate-model',
       vendor_id: existingVendorId,
     })
@@ -34,7 +34,7 @@ describe('Model API (Negative)', () => {
       const modelData = {
         vendor_id: existingVendorId,
       }
-      const response = await post('/model/create.json', modelData)
+      const response = await requestHelper.post('/model/create.json', modelData)
 
       expect(response.status).toBeGreaterThanOrEqual(400)
     })
@@ -43,14 +43,14 @@ describe('Model API (Negative)', () => {
       const modelData = {
         name: 'test-model',
       }
-      const response = await post('/model/create.json', modelData)
+      const response = await requestHelper.post('/model/create.json', modelData)
 
       expect(response.status).toBeGreaterThanOrEqual(400)
     })
 
     it('should return error when both required fields are missing', async () => {
       const modelData = {}
-      const response = await post('/model/create.json', modelData)
+      const response = await requestHelper.post('/model/create.json', modelData)
 
       expect(response.status).toBeGreaterThanOrEqual(400)
     })
@@ -60,7 +60,7 @@ describe('Model API (Negative)', () => {
         name: 'test-model',
         vendor_id: 99999,
       }
-      const response = await post('/model/create.json', modelData)
+      const response = await requestHelper.post('/model/create.json', modelData)
 
       expect(response.status).toBeGreaterThanOrEqual(400)
     })
@@ -68,28 +68,28 @@ describe('Model API (Negative)', () => {
 
   describe('GET /model/:id', () => {
     it('should return error for non-existent model ID', async () => {
-      const response = await get('/model/99999')
+      const response = await requestHelper.get('/model/99999')
 
       expect(response.status).toBeGreaterThanOrEqual(400)
       expect(response.body).toHaveProperty('error')
     })
 
     it('should return error for invalid ID format', async () => {
-      const response = await get('/model/invalid-id')
+      const response = await requestHelper.get('/model/invalid-id')
 
       expect(response.status).toBeGreaterThanOrEqual(400)
       expect(response.body).toHaveProperty('error')
     })
 
     it('should return error for negative ID', async () => {
-      const response = await get('/model/-1')
+      const response = await requestHelper.get('/model/-1')
 
       expect(response.status).toBeGreaterThanOrEqual(400)
       expect(response.body).toHaveProperty('error')
     })
 
     it('should return error for zero ID', async () => {
-      const response = await get('/model/0')
+      const response = await requestHelper.get('/model/0')
 
       expect(response.status).toBeGreaterThanOrEqual(400)
       expect(response.body).toHaveProperty('error')

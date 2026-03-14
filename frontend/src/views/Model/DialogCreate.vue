@@ -87,7 +87,16 @@ async function handleOk() {
     try {
         await formRef.value?.validate();
         loading.value = true;
-        const model = await createModel(formState);
+        // 确保 vendor_id 不为空（表单验证应该已经保证）
+        if (formState.vendor_id === undefined) {
+            message.error('请选择供应商');
+            return;
+        }
+        const model = await createModel({
+            name: formState.name,
+            vendor_id: formState.vendor_id,
+            enable: formState.enable,
+        });
         message.success('创建成功');
         emit('success', model);
         handleCancel();

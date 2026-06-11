@@ -78,16 +78,26 @@
                     </a-descriptions>
                 </a-card>
 
-                <!-- 请求数据与可视化 -->
+                <!-- 请求与响应数据 -->
                 <a-card class="detail-card request-tabs-card">
                     <a-tabs v-model:activeKey="activeRequestTab">
                         <template #rightExtra>
                             <a-button
-                                v-if="activeRequestTab === 'json'"
+                                v-if="activeRequestTab === 'request_json'"
                                 type="link"
                                 size="small"
                                 :disabled="!recordStore.currentRecord?.request_data"
                                 @click="downloadJson(recordStore.currentRecord?.request_data, 'request')"
+                            >
+                                <template #icon><DownloadOutlined /></template>
+                                下载
+                            </a-button>
+                            <a-button
+                                v-else-if="activeRequestTab === 'response_json'"
+                                type="link"
+                                size="small"
+                                :disabled="!recordStore.currentRecord?.response_data"
+                                @click="downloadJson(recordStore.currentRecord?.response_data, 'response')"
                             >
                                 <template #icon><DownloadOutlined /></template>
                                 下载
@@ -106,28 +116,18 @@
                             </div>
                         </a-tab-pane>
 
-                        <a-tab-pane key="json" tab="原始请求 (JSON)">
+                        <a-tab-pane key="request_json" tab="请求数据 (JSON)">
                             <div class="json-pane-content">
                                 <JsonViewer :data="recordStore.currentRecord.request_data" />
                             </div>
                         </a-tab-pane>
-                    </a-tabs>
-                </a-card>
 
-                <!-- 响应数据 -->
-                <a-card title="响应数据" class="detail-card">
-                    <template #extra>
-                        <a-button
-                            type="link"
-                            size="small"
-                            :disabled="!recordStore.currentRecord?.response_data"
-                            @click="downloadJson(recordStore.currentRecord?.response_data, 'response')"
-                        >
-                            <template #icon><DownloadOutlined /></template>
-                            下载
-                        </a-button>
-                    </template>
-                    <JsonViewer :data="recordStore.currentRecord.response_data" />
+                        <a-tab-pane key="response_json" tab="响应数据 (JSON)">
+                            <div class="json-pane-content">
+                                <JsonViewer :data="recordStore.currentRecord.response_data" />
+                            </div>
+                        </a-tab-pane>
+                    </a-tabs>
                 </a-card>
 
                 <!-- 错误信息 -->
@@ -163,7 +163,7 @@ const route = useRoute();
 const recordStore = useRecordStore();
 
 const viewerIframe = ref<HTMLIFrameElement | null>(null);
-const activeRequestTab = ref<string>('json');
+const activeRequestTab = ref<string>('request_json');
 
 const conversationMessages = computed(() => {
     const msgs: any[] = [];
@@ -203,7 +203,7 @@ watch(conversationMessages, (newVal) => {
     if (newVal.length > 0) {
         activeRequestTab.value = 'visual';
     } else {
-        activeRequestTab.value = 'json';
+        activeRequestTab.value = 'request_json';
     }
 
     if (newVal.length > 0 && viewerIframe.value && viewerIframe.value.contentWindow) {

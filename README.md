@@ -18,7 +18,7 @@
 
 ## 强大的协议转换能力
 
-GT AI Gateway 内置了强大的协议转换引擎，旨在打破不同 AI 供应商之间的生态壁垒。通过网关，您可以直接用标准的 OpenAI 请求格式去调用 Anthropic (Claude) 等其他协议的大模型，而无需修改任何现有的客户端代码。
+GT AI Gateway 内置了强大的协议转换引擎，旨在打破不同 AI 供应商之间的生态壁垒。通过网关，您可以直接用标准的 OpenAI 请求格式去调用 Anthropic (Claude) 等其他协议的大模型，而无需修改任何现有的客户端代码。详见：[自动协议转换说明](doc/usage/ProtocolConversion.md)。
 
 | 客户端请求协议 | ➡️ 实时转换 ➡️ | 上游目标模型协议 | 支持状态 | 完整度说明 |
 | :--- | :---: | :--- | :---: | :--- |
@@ -94,6 +94,7 @@ docker run -d \
   - [源码部署文档](doc/deploy/SourceCodeDeployment.md)
   - [系统配置与使用指南](doc/usage/ConfigurationGuide.md)
   - [LLM API 使用指南](doc/usage/LlmApiUsage.md)
+  - [自动协议转换说明](doc/usage/ProtocolConversion.md)
 
 - **开发人员手册**
   - [前端开发手册](doc/dev/FrontendDevManual.md): 包含前端环境配置、项目结构及开发命令。

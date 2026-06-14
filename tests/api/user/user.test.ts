@@ -33,6 +33,7 @@ describe("User API (Positive)", () => {
             expect(response.body.token).toBe(userData.token);
             expect(response.body).toHaveProperty("created_at");
             expect(response.body).toHaveProperty("updated_at");
+            expect(response.body.status).toBe("active");
 
             createdUserId = response.body.id;
             createdUserToken = response.body.token;
@@ -153,6 +154,7 @@ describe("User API (Positive)", () => {
             expect(response.body).toHaveProperty("token");
             expect(response.body).toHaveProperty("created_at");
             expect(response.body).toHaveProperty("updated_at");
+            expect(response.body).toHaveProperty("status");
         });
     });
 
@@ -186,6 +188,18 @@ describe("User API (Positive)", () => {
             expect(response.body.id).toBe(userToUpdateId);
             expect(response.body.name).toBe(updateData.name);
             expect(response.body.token).toBe(originalToken); // Token should remain unchanged
+        });
+
+        it("should update user status to disabled", async () => {
+            const updateData = { status: "disabled" };
+            const response = await requestHelper.put(
+                `/user/${userToUpdateId}`,
+                updateData,
+                adminToken,
+            );
+
+            expect(response.status).toBe(200);
+            expect(response.body.status).toBe("disabled");
         });
 
         it("should update token with new value", async () => {

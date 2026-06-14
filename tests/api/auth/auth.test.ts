@@ -11,6 +11,7 @@ import userFixtures from "../../fixtures/userFixtures";
 
 let adminToken = "admin-token-123";
 let normalToken = "normal-token-123";
+let disabledToken = "disabled-token-123";
 let invalidToken = "invalid-token-123";
 let vendorId: number;
 let anthropicVendorId: number;
@@ -31,6 +32,22 @@ describe("Auth API Tests", () => {
                 type: "normal",
             },
             adminToken,
+        );
+
+        // Create disabled user via API
+        const disabledUserResponse = await requestHelper.post(
+            "/user/create.json",
+            {
+                name: "Disabled User",
+                token: disabledToken,
+                type: "normal",
+            },
+            adminToken,
+        );
+        await requestHelper.put(
+            `/user/${disabledUserResponse.body.id}`,
+            { status: "disabled" },
+            adminToken
         );
 
         // Create OpenAI vendor for testing (using mock server URL)
@@ -113,6 +130,16 @@ describe("Auth API Tests", () => {
 
                 expect(response.status).toBe(403);
                 expect(response.body.error).toBe("Admin access required");
+            });
+
+            it("should return 403 with disabled user token", async () => {
+                const response = await requestHelper.get(
+                    "/vendor/list.json",
+                    disabledToken,
+                );
+
+                expect(response.status).toBe(403);
+                expect(response.body.error).toBe("User disabled");
             });
 
             it("should return 200 with admin token", async () => {

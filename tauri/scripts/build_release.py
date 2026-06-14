@@ -4,6 +4,7 @@ import subprocess
 import sys
 import shlex
 import shutil
+import json
 
 def run_command(command):
     shell_command = ' '.join(shlex.quote(str(s)) for s in command)
@@ -91,7 +92,19 @@ def main():
     os.symlink("/Applications", os.path.join(dmg_tmp_dir, "Applications"))
     shutil.copytree(app_path, os.path.join(dmg_tmp_dir, app_name), symlinks=True)
     
-    dmg_name = app_name.replace(".app", ".dmg")
+    # Read version from tauri.conf.json
+    version = ""
+    tauri_conf_path = "../src-tauri/tauri.conf.json"
+    try:
+        with open(tauri_conf_path, 'r', encoding='utf-8') as f:
+            tauri_conf = json.load(f)
+            version = tauri_conf.get('version', '')
+    except Exception as e:
+        print(f"⚠️ Warning: Could not read version from tauri.conf.json: {e}")
+
+    arch = "aarch64" if "aarch64" in target else "x86_64"
+    version_suffix = f"_{version}" if version else ""
+    dmg_name = app_name.replace(".app", f"{version_suffix}_{arch}.dmg")
     dmg_path = os.path.join(dmg_out_dir, dmg_name)
     
     if os.path.exists(dmg_path):

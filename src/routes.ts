@@ -137,6 +137,7 @@ app.get("*", async (c, next) => {
 
     // Let static assets pass through to static file middleware (node mode)
     if (pathname.startsWith("/assets/") ||
+        pathname.startsWith("/data_viewer/") ||
         pathname.endsWith(".svg") ||
         pathname.endsWith(".png") ||
         pathname.endsWith(".jpg") ||

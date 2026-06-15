@@ -98,7 +98,7 @@ async function startServer() {
         const pathname = url.pathname;
 
         // Let asset files pass through to serveStatic middleware
-        if (pathname.startsWith("/assets/")) {
+        if (pathname.startsWith("/assets/") || pathname.startsWith("/data_viewer/")) {
             return next();
         }
 
@@ -123,8 +123,9 @@ async function startServer() {
         return c.html(indexHtml, 200);
     });
 
-    // Static file serving for assets only (JS, CSS)
+    // Static file serving for built frontend assets
     app.use("/assets/*", serveStatic({ root: distPath }));
+    app.use("/data_viewer/*", serveStatic({ root: distPath }));
 
     const hostname = process.env.HOST || "127.0.0.1";
 

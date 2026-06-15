@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import requestHelper from "../helpers/requestHelper";
 import dbHelper from "../helpers/dbHelper";
 import { setupAdminUser } from "../globalSetup";
-import { readdirSync } from "fs";
+import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
 import config from "../config";
 
@@ -36,6 +36,19 @@ function getFirstAsset(type: "js" | "css" | "svg"): string | null {
         }
     } catch {
         return null;
+    }
+}
+
+
+function getDataViewerAssets(): string[] {
+    const indexPath = join(process.cwd(), "frontend", "dist", "data_viewer", "dist", "index.html");
+
+    try {
+        const html = readFileSync(indexPath, "utf-8");
+        return Array.from(html.matchAll(/(?:src|href)=(?:"|')([^"']+\.(?:js|css))(?:"|')/g))
+            .map((match) => `/data_viewer/dist/${match[1].replace(/^\.\//, "")}`);
+    } catch {
+        return [];
     }
 }
 
@@ -124,6 +137,36 @@ describe("Frontend-Backend Integration", () => {
             const response = await getRaw(asset);
             expect(response.status).toBe(200);
             expect(response.contentType).toContain("image/svg");
+        });
+
+
+        it("should serve data viewer files", async () => {
+            const indexResponse = await getRaw("/data_viewer/dist/index.html");
+            expect(indexResponse.status).toBe(200);
+            expect(indexResponse.contentType).toContain("text/html");
+            expect(indexResponse.body).toContain("Vue Beautiful Chat Demo");
+
+            const assets = getDataViewerAssets();
+
+            if (assets.length === 0) {
+                console.warn("No data viewer assets found, skipping asset checks");
+                return;
+            }
+
+            for (const asset of assets) {
+                const response = await getRaw(asset);
+                expect(response.status).toBe(200);
+
+                if (asset.endsWith(".js")) {
+                    expect(response.contentType).toMatch(/javascript|octet-stream/);
+                    expect(response.body).not.toContain("GT AI Gateway");
+                }
+
+                if (asset.endsWith(".css")) {
+                    expect(response.contentType).toMatch(/css|octet-stream/);
+                    expect(response.body).not.toContain("GT AI Gateway");
+                }
+            }
         });
     });
 

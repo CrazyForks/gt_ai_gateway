@@ -7,16 +7,11 @@ import shutil
 import json
 
 def run_command(command):
-    shell_command = ' '.join(shlex.quote(str(s)) for s in command)
-    print(f"🚀 Executing: {shell_command}")
-    process = subprocess.Popen(shell_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    for line in iter(process.stdout.readline, ''):
-        print(line, end='')
-    process.stdout.close()
-    return_code = process.wait()
-    if return_code != 0:
-        print(f"❌ Error: Command failed with code {return_code}", file=sys.stderr)
-        sys.exit(return_code)
+    print(f"🚀 Executing: {' '.join(shlex.quote(str(s)) for s in command)}")
+    process = subprocess.run(command)
+    if process.returncode != 0:
+        print(f"❌ Error: Command failed with code {process.returncode}", file=sys.stderr)
+        sys.exit(process.returncode)
 
 def main():
     if len(sys.argv) < 2:

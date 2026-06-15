@@ -59,6 +59,7 @@ describe("AI Responses API", () => {
             const req = mockHelper.generateResponsesRequest({
                 model: responsesModelName,
                 stream: false,
+                cached_tokens: 4,
             });
 
             const response = await requestHelper.post(
@@ -90,12 +91,14 @@ describe("AI Responses API", () => {
             const usageR1 = JSON.parse(record.usage);
             expect(usageR1.prompt_tokens).toBeGreaterThan(0);
             expect(usageR1.completion_tokens).toBeGreaterThan(0);
+            expect(usageR1.cache_read_tokens).toBe(4);
         }, 30000);
 
         it("should handle streaming responses request", async () => {
             const req = mockHelper.generateResponsesRequest({
                 model: responsesModelName,
                 stream: true,
+                cached_tokens: 4,
             });
 
             const response = await requestHelper.post(
@@ -123,6 +126,7 @@ describe("AI Responses API", () => {
             const usageR2 = JSON.parse(record.usage);
             expect(usageR2.prompt_tokens).toBeGreaterThan(0);
             expect(usageR2.completion_tokens).toBeGreaterThan(0);
+            expect(usageR2.cache_read_tokens).toBe(4);
 
             if (config.TEST_MODE === "node" && process.env.STREAM_LOG_ENABLED === "true") {
                 const streamLog = await streamLogHelper.readStreamLog(record.id);

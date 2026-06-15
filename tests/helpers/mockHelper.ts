@@ -130,12 +130,14 @@ function generateResponsesRequest(
         model: string;
         input: string;
         stream: boolean;
+        cached_tokens: number;
     }> = {},
 ) {
     return {
         model: overrides.model || "gpt-4o",
         input: overrides.input || "Hello!",
         stream: overrides.stream ?? false,
+        ...(overrides.cached_tokens !== undefined ? { cached_tokens: overrides.cached_tokens } : {}),
     };
 }
 

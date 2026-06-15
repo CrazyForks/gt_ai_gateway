@@ -493,7 +493,7 @@ function handleResponsesNonStreamResponse(res: ServerResponse, data: any): void 
         ],
         usage: {
             input_tokens: 10,
-            input_tokens_details: { cached_tokens: 0 },
+            input_tokens_details: { cached_tokens: data.cached_tokens ?? 0 },
             output_tokens: 15,
             output_tokens_details: { reasoning_tokens: 0 },
             total_tokens: 25,
@@ -640,7 +640,7 @@ function handleResponsesStreamResponse(res: ServerResponse, data: any): void {
                     ],
                     usage: {
                         input_tokens: 10,
-                        input_tokens_details: { cached_tokens: 0 },
+                        input_tokens_details: { cached_tokens: data.cached_tokens ?? 0 },
                         output_tokens: 15,
                         output_tokens_details: { reasoning_tokens: 0 },
                         total_tokens: 25,

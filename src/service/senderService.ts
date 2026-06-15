@@ -43,6 +43,57 @@ function calculateCost(
 }
 
 
+type Dict = Record<string, unknown>;
+
+
+function normalizeUsage(format: ApiFormat, usage: Dict | null | undefined) {
+    if (!usage) return null;
+
+    const recordUsage = new SgRecordUsage();
+    let promptTokens = 0;
+    let outputTokens = 0;
+    let cacheReadTokens = 0;
+
+    if (format === ApiFormat.OPENAI) {
+        promptTokens = (usage.prompt_tokens as number | undefined) ?? 0;
+        outputTokens = (usage.completion_tokens as number | undefined) ?? 0;
+        cacheReadTokens = ((usage.prompt_tokens_details as Dict | undefined)?.cached_tokens as number | undefined)
+            ?? (usage.cache_read_tokens as number | undefined)
+            ?? 0;
+        recordUsage.prompt_tokens = Math.max(0, promptTokens - cacheReadTokens);
+    }
+
+    if (format === ApiFormat.ANTHROPIC) {
+        promptTokens = ((usage.input_tokens as number | undefined) ?? 0) + ((usage.cache_read_input_tokens as number | undefined) ?? 0);
+        outputTokens = (usage.output_tokens as number | undefined) ?? 0;
+        cacheReadTokens = (usage.cache_read_input_tokens as number | undefined)
+            ?? (usage.cache_read_tokens as number | undefined)
+            ?? 0;
+        recordUsage.prompt_tokens = (usage.input_tokens as number | undefined) ?? 0;
+        recordUsage.cache_creation_tokens = (usage.cache_creation_input_tokens as number | undefined)
+            ?? (usage.cache_creation_tokens as number | undefined);
+    }
+
+    if (format === ApiFormat.RESPONSES) {
+        promptTokens = (usage.input_tokens as number | undefined)
+            ?? (usage.prompt_tokens as number | undefined)
+            ?? 0;
+        outputTokens = (usage.output_tokens as number | undefined)
+            ?? (usage.completion_tokens as number | undefined)
+            ?? 0;
+        cacheReadTokens = ((usage.input_tokens_details as Dict | undefined)?.cached_tokens as number | undefined)
+            ?? (usage.cache_read_input_tokens as number | undefined)
+            ?? (usage.cache_read_tokens as number | undefined)
+            ?? 0;
+        recordUsage.prompt_tokens = Math.max(0, promptTokens - cacheReadTokens);
+    }
+
+    recordUsage.completion_tokens = outputTokens;
+    recordUsage.cache_read_tokens = cacheReadTokens;
+    return { recordUsage, promptTokens, outputTokens, cacheReadTokens };
+}
+
+
 async function prepareStreamLog(record: SgRecord): Promise<WriteStream | null> {
     const isStreamLogEnabled = ormService.isNode && process.env.STREAM_LOG_ENABLED === "true";
 
@@ -228,26 +279,15 @@ async function handleStreamResponse(
         if (streamCompleted) {
             // 流结束，保存完整响应到数据库
             const fullResponse = accumulator.getResponse();
-            const promptTokens = fullResponse.usage?.prompt_tokens ?? 0;
-            const outputTokens = fullResponse.usage?.completion_tokens ?? 0;
-            let cacheReadTokens = 0;
-            if (fullResponse.usage) {
-                // OpenAI style
-                if (fullResponse.usage.cache_read_input_tokens !== undefined) {
-                    cacheReadTokens = fullResponse.usage.cache_read_input_tokens;
-                }
-                // Anthropic style inside extra mapping or custom mapping?
-                // Wait, if it was mapped via ProtocolPairConverter, it might be in usage.cache_read_tokens
-                else if ((fullResponse.usage as any).cache_read_tokens !== undefined) {
-                    cacheReadTokens = (fullResponse.usage as any).cache_read_tokens;
-                }
-            }
-            const cost = calculateCost(model, promptTokens, outputTokens, cacheReadTokens);
+            const normalizedUsage = normalizeUsage(format, fullResponse.usage);
+            const cost = normalizedUsage
+                ? calculateCost(model, normalizedUsage.promptTokens, normalizedUsage.outputTokens, normalizedUsage.cacheReadTokens)
+                : 0;
 
             await recordService.update(record.id, {
                 response_data: JSON.stringify(fullResponse),
                 status: SgRecordStatus.SUCCESS,
-                usage: fullResponse.usage ? JSON.stringify(fullResponse.usage) : null,
+                usage: normalizedUsage ? JSON.stringify(normalizedUsage.recordUsage) : null,
                 first_token_latency: firstTokenTime !== null
                     ? firstTokenTime - record.created_at.getTime()
                     : null,
@@ -297,45 +337,18 @@ async function handleNonStreamResponse(
         }
     }
 
-    // 从响应体中提取 token 统计
-    let promptTokens: number | null = null;
-    let outputTokens: number | null = null;
-    let finalCacheReadTokens = 0;
-    let usageJson: string | null = null;
+    let normalizedUsage: NormalizedUsage | null = null;
     try {
         const responseJson = JSON.parse(responseText);
-        if (upstreamFormat === ApiFormat.ANTHROPIC) {
-            promptTokens = responseJson.usage?.input_tokens ?? null;
-            outputTokens = responseJson.usage?.output_tokens ?? null;
-            if (responseJson.usage) {
-                const u = new SgRecordUsage();
-                u.prompt_tokens = promptTokens ?? undefined;
-                u.completion_tokens = outputTokens ?? undefined;
-                u.cache_read_tokens = responseJson.usage.cache_read_input_tokens ?? undefined;
-                if (u.cache_read_tokens) finalCacheReadTokens = u.cache_read_tokens;
-                u.cache_creation_tokens = responseJson.usage.cache_creation_input_tokens ?? undefined;
-                usageJson = JSON.stringify(u);
-            }
-        } else {
-            promptTokens = responseJson.usage?.prompt_tokens ?? null;
-            outputTokens = responseJson.usage?.completion_tokens ?? null;
-            if (responseJson.usage) {
-                const cachedTokens = responseJson.usage.prompt_tokens_details?.cached_tokens;
-                const u = new SgRecordUsage();
-                u.prompt_tokens = (promptTokens ?? 0) - (cachedTokens ?? 0);
-                u.completion_tokens = outputTokens ?? undefined;
-                u.cache_read_tokens = cachedTokens ?? undefined;
-                if (u.cache_read_tokens) finalCacheReadTokens = u.cache_read_tokens;
-                usageJson = JSON.stringify(u);
-            }
-        }
+        normalizedUsage = normalizeUsage(upstreamFormat, responseJson.usage);
     } catch (e) {
         console.log("Failed to parse response for token stats:", e);
     }
 
-    const finalPromptTokens = promptTokens ?? 0;
-    const finalOutputTokens = outputTokens ?? 0;
-    const cost = calculateCost(model, finalPromptTokens, finalOutputTokens, finalCacheReadTokens);
+    const usageJson = normalizedUsage ? JSON.stringify(normalizedUsage.recordUsage) : null;
+    const cost = normalizedUsage
+        ? calculateCost(model, normalizedUsage.promptTokens, normalizedUsage.outputTokens, normalizedUsage.cacheReadTokens)
+        : 0;
 
     await recordService.update(record.id, {
         response_data: clientResponseText,
@@ -466,17 +479,11 @@ async function handleResponsesStreamResponse(
                         if (clientEventType === "response.completed" && clientParsedData) {
                             try {
                                 const usage = clientParsedData?.response?.usage;
-                                const promptTokens = usage?.input_tokens ?? 0;
-                                const outputTokens = usage?.output_tokens ?? 0;
-                                const cacheReadTokens = usage?.cache_read_input_tokens ?? 0;
-                                const cost = calculateCost(model, promptTokens, outputTokens, cacheReadTokens);
-                                let usageJson: string | null = null;
-                                if (usage) {
-                                    const u = new SgRecordUsage();
-                                    u.prompt_tokens = promptTokens;
-                                    u.completion_tokens = outputTokens;
-                                    usageJson = JSON.stringify(u);
-                                }
+                                const normalizedUsage = normalizeUsage(ApiFormat.RESPONSES, usage);
+                                const cost = normalizedUsage
+                                    ? calculateCost(model, normalizedUsage.promptTokens, normalizedUsage.outputTokens, normalizedUsage.cacheReadTokens)
+                                    : 0;
+                                const usageJson = normalizedUsage ? JSON.stringify(normalizedUsage.recordUsage) : null;
 
                                 await recordService.update(record.id, {
                                     response_data: JSON.stringify(clientParsedData.response),
@@ -547,36 +554,18 @@ async function handleResponsesNonStreamResponse(
         }
     }
 
-    let promptTokens = 0;
-    let outputTokens = 0;
-    let usageJson: string | null = null;
+    let normalizedUsage: NormalizedUsage | null = null;
     try {
         const responseJson = JSON.parse(responseText);
-        if (upstreamFormat === ApiFormat.ANTHROPIC) {
-            promptTokens = responseJson.usage?.input_tokens ?? 0;
-            outputTokens = responseJson.usage?.output_tokens ?? 0;
-        } else {
-            promptTokens = responseJson.usage?.input_tokens ?? responseJson.usage?.prompt_tokens ?? 0;
-            outputTokens = responseJson.usage?.output_tokens ?? responseJson.usage?.completion_tokens ?? 0;
-        }
-        if (responseJson.usage) {
-            const u = new SgRecordUsage();
-            u.prompt_tokens = promptTokens;
-            u.completion_tokens = outputTokens;
-            usageJson = JSON.stringify(u);
-        }
+        normalizedUsage = normalizeUsage(upstreamFormat, responseJson.usage);
     } catch (e) {
         console.log("Failed to parse responses API response:", e);
     }
 
-    let cacheReadTokens = 0;
-    try {
-        const responseJson = JSON.parse(clientResponseText);
-        if (responseJson.usage && responseJson.usage.cache_read_input_tokens !== undefined) {
-            cacheReadTokens = responseJson.usage.cache_read_input_tokens;
-        }
-    } catch(e) {}
-    const cost = calculateCost(model, promptTokens, outputTokens, cacheReadTokens);
+    const usageJson = normalizedUsage ? JSON.stringify(normalizedUsage.recordUsage) : null;
+    const cost = normalizedUsage
+        ? calculateCost(model, normalizedUsage.promptTokens, normalizedUsage.outputTokens, normalizedUsage.cacheReadTokens)
+        : 0;
 
     await recordService.update(record.id, {
         response_data: clientResponseText,

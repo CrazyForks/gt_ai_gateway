@@ -6,6 +6,10 @@ on:
     tags:
       - 'v*'
 
+concurrency:
+  group: tauri-build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-mac:
     name: Build macOS App (${{ matrix.target }})
@@ -90,11 +94,78 @@ jobs:
           path: tauri/build/target/${{ matrix.target }}/release/bundle/signed_dmg/*.dmg
           if-no-files-found: warn
 
+  build-win:
+    name: Build Windows App (x86_64-pc-windows-msvc)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Verify Version Consistency
+        shell: bash
+        run: bash script/verify_versions.sh
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        run: cd frontend && npm ci
+
+      - name: Install tauri dependencies
+        run: cd tauri && npm ci
+
+      - name: Build backend sidecar
+        shell: bash
+        env:
+          TAURI_BUILD_TARGET: x86_64-pc-windows-msvc
+        run: npm run tauri:build-sidecar-backend
+
+      - name: Build Tauri App
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHELL: bash
+          npm_config_script_shell: bash
+        with:
+          projectPath: './tauri'
+          args: '--target x86_64-pc-windows-msvc --bundles nsis msi'
+
+      - name: Upload Windows Artifacts
+        shell: pwsh
+        run: |
+          $artifactsDir = "windows-artifacts"
+          New-Item -ItemType Directory -Force -Path $artifactsDir | Out-Null
+          Get-ChildItem "tauri" -Recurse -Include "*.exe" -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*setup*" -or $_.Name -like "*Gateway*" } | Copy-Item -Destination $artifactsDir -Force -ErrorAction SilentlyContinue
+          Get-ChildItem "tauri" -Recurse -Include "*.msi" -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*Gateway*" } | Copy-Item -Destination $artifactsDir -Force -ErrorAction SilentlyContinue
+          Get-ChildItem $artifactsDir | ForEach-Object { Write-Host "UPLOAD: $($_.Name) ($($_.Length) bytes)" }
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: Windows-app-x86_64
+          path: windows-artifacts/
+          if-no-files-found: warn
+
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: build-mac
+    needs: [build-mac, build-win]
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
@@ -124,6 +195,14 @@ jobs:
           path: release-artifacts
           merge-multiple: true
 
+      - name: Download Windows artifacts
+        if: steps.version_tag.outputs.matched == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          pattern: Windows-app-*
+          path: release-artifacts-win
+          merge-multiple: true
+
       - name: Create or update release
         if: steps.version_tag.outputs.matched == 'true'
         env:
@@ -131,7 +210,9 @@ jobs:
         shell: bash
         run: |
           tag="${GITHUB_REF_NAME}"
-          mapfile -t assets < <(find release-artifacts -type f -name "*.dmg" | sort)
+          mapfile -t dmg_assets < <(find release-artifacts -type f -name "*.dmg" 2>/dev/null | sort)
+          mapfile -t win_assets < <(find release-artifacts-win -type f \( -name "*.exe" -o -name "*.msi" \) 2>/dev/null | sort)
+          assets=("${dmg_assets[@]}" "${win_assets[@]}")
 
           if gh release view "$tag" >/dev/null 2>&1; then
             echo "Release $tag already exists"

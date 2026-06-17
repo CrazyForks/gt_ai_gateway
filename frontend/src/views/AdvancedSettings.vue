@@ -20,6 +20,38 @@
                             />
                         </div>
                     </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-title">Responses API Prompt Caching</div>
+                            <div class="setting-desc">启用后，会在 Responses API 请求中自动注入 prompt_cache_key，优化缓存命中率</div>
+                        </div>
+                        <div class="setting-action">
+                            <a-switch
+                                v-model:checked="form.responses_prompt_cache_key_enabled"
+                                :disabled="saving"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h3 class="section-title">系统信息</h3>
+                <div class="settings-list">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-title">本机唯一 ID (Host Key)</div>
+                            <div class="setting-desc">用于区分不同实例的短标识，不可随意修改。如需重新生成，可清空后保存。</div>
+                        </div>
+                        <div class="setting-action">
+                            <a-input
+                                v-model:value="form.host_key"
+                                style="width: 200px"
+                                placeholder="留空自动生成"
+                                :disabled="saving"
+                            />
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -87,14 +119,20 @@ const saving = ref(false);
 
 const originalConfig = reactive({
     cch_rewrite_enabled: false,
+    responses_prompt_cache_key_enabled: false,
+    host_key: '',
 });
 
 const form = reactive({
     cch_rewrite_enabled: false,
+    responses_prompt_cache_key_enabled: false,
+    host_key: '',
 });
 
 const isDirty = computed(() => {
-    return form.cch_rewrite_enabled !== originalConfig.cch_rewrite_enabled;
+    return form.cch_rewrite_enabled !== originalConfig.cch_rewrite_enabled ||
+           form.responses_prompt_cache_key_enabled !== originalConfig.responses_prompt_cache_key_enabled ||
+           form.host_key !== originalConfig.host_key;
 });
 
 onMounted(() => {
@@ -105,8 +143,14 @@ async function loadConfig(): Promise<void> {
     loading.value = true;
     try {
         const config = await getConfig();
-        form.cch_rewrite_enabled = config.cch_rewrite_enabled === true;
-        originalConfig.cch_rewrite_enabled = config.cch_rewrite_enabled === true;
+        form.cch_rewrite_enabled = config.cch_rewrite_enabled === "true";
+        originalConfig.cch_rewrite_enabled = config.cch_rewrite_enabled === "true";
+        
+        form.responses_prompt_cache_key_enabled = config.responses_prompt_cache_key_enabled === "true";
+        originalConfig.responses_prompt_cache_key_enabled = config.responses_prompt_cache_key_enabled === "true";
+        
+        form.host_key = config.host_key || '';
+        originalConfig.host_key = config.host_key || '';
         if (!appStore.version) {
             appStore.fetchVersion();
         }
@@ -117,6 +161,8 @@ async function loadConfig(): Promise<void> {
 
 function cancelChanges() {
     form.cch_rewrite_enabled = originalConfig.cch_rewrite_enabled;
+    form.responses_prompt_cache_key_enabled = originalConfig.responses_prompt_cache_key_enabled;
+    form.host_key = originalConfig.host_key;
 }
 
 async function doCheckUpdate() {
@@ -155,11 +201,19 @@ async function saveConfig(): Promise<void> {
     saving.value = true;
     try {
         const config = await updateConfig({
-            cch_rewrite_enabled: form.cch_rewrite_enabled,
+            cch_rewrite_enabled: form.cch_rewrite_enabled ? "true" : "false",
+            responses_prompt_cache_key_enabled: form.responses_prompt_cache_key_enabled ? "true" : "false",
+            ...(form.host_key ? { host_key: form.host_key } : {}), // only send host_key if it's set
         });
         
-        form.cch_rewrite_enabled = config.cch_rewrite_enabled === true;
-        originalConfig.cch_rewrite_enabled = config.cch_rewrite_enabled === true;
+        form.cch_rewrite_enabled = config.cch_rewrite_enabled === "true";
+        originalConfig.cch_rewrite_enabled = config.cch_rewrite_enabled === "true";
+        
+        form.responses_prompt_cache_key_enabled = config.responses_prompt_cache_key_enabled === "true";
+        originalConfig.responses_prompt_cache_key_enabled = config.responses_prompt_cache_key_enabled === "true";
+        
+        form.host_key = config.host_key || '';
+        originalConfig.host_key = config.host_key || '';
         message.success('设置已保存');
     } catch {
         // error handling is typically done by the request interceptor

@@ -1,31 +1,39 @@
 import { SgConfig } from "../model/sgConfig";
 
-const CCH_REWRITE_ENABLED = "cch_rewrite_enabled";
-const RESPONSES_PROMPT_CACHE_KEY_ENABLED = "responses_prompt_cache_key_enabled";
-type ConfigMap = Record<string, string | boolean | number | null>;
+export enum ConfigKey {
+    CCH_REWRITE_ENABLED = "cch_rewrite_enabled",
+    RESPONSES_PROMPT_CACHE_KEY_ENABLED = "responses_prompt_cache_key_enabled",
+    HOST_KEY = "host_key",
+}
 
-function parseValue(value: string): string | boolean | number | null {
-    if (value === "true") return true;
-    if (value === "false") return false;
-    if (value === "null") return null;
-    const numberValue = Number(value);
-    if (value.trim() !== "" && Number.isFinite(numberValue) && String(numberValue) === value) {
-        return numberValue;
+export class ConfigItem {
+    constructor(private readonly value: string | null | undefined, private readonly defaultValue: string) {}
+
+    getString(): string {
+        return this.value ?? this.defaultValue;
     }
-    return value;
+
+    getBoolean(): boolean {
+        const val = this.value ?? this.defaultValue;
+        if (val === "true") return true;
+        if (val === "false") return false;
+        return false;
+    }
+
+    getNumber(): number {
+        const val = this.value ?? this.defaultValue;
+        if (!val || val.trim() === "") return 0;
+        const num = Number(val);
+        return Number.isFinite(num) ? num : 0;
+    }
 }
 
-function stringifyValue(value: string | boolean | number | null): string {
-    if (value === null) return "null";
-    return String(value);
-}
-
-async function getValue(name: string, defaultValue: string): Promise<string> {
+async function getConfig(name: ConfigKey | string, defaultValue: string = ""): Promise<ConfigItem> {
     const config = await SgConfig.query().where("name", name).first();
-    return config?.value ?? defaultValue;
+    return new ConfigItem(config?.value, defaultValue);
 }
 
-async function setValue(name: string, value: string): Promise<SgConfig> {
+async function setValue(name: ConfigKey | string, value: string): Promise<SgConfig> {
     const config = await SgConfig.query().where("name", name).first();
     if (config) {
         await config.update({ value });
@@ -35,56 +43,27 @@ async function setValue(name: string, value: string): Promise<SgConfig> {
     return await SgConfig.query().create({ name, value });
 }
 
-async function getBoolean(name: string, defaultValue: boolean): Promise<boolean> {
-    const value = await getValue(name, defaultValue ? "true" : "false");
-    return value === "true";
-}
-
-async function setBoolean(name: string, value: boolean): Promise<SgConfig> {
-    return await setValue(name, value ? "true" : "false");
-}
-
-async function getAll(): Promise<ConfigMap> {
+async function getAll(): Promise<Record<string, string>> {
     const configs = await SgConfig.query().get();
-    const result: ConfigMap = {};
+    const result: Record<string, string> = {};
     for (const config of configs) {
-        result[config.name] = parseValue(config.value);
-    }
-
-    if (result[CCH_REWRITE_ENABLED] === undefined) {
-        result[CCH_REWRITE_ENABLED] = false;
-    }
-    if (result[RESPONSES_PROMPT_CACHE_KEY_ENABLED] === undefined) {
-        result[RESPONSES_PROMPT_CACHE_KEY_ENABLED] = false;
+        result[config.name] = config.value;
     }
 
     return result;
 }
 
-async function updateAll(data: ConfigMap): Promise<ConfigMap> {
+async function updateAll(data: Record<string, string>): Promise<Record<string, string>> {
     for (const [name, value] of Object.entries(data)) {
-        await setValue(name, stringifyValue(value));
+        await setValue(name, value);
     }
 
     return await getAll();
 }
 
-async function isCchRewriteEnabled(): Promise<boolean> {
-    return await getBoolean(CCH_REWRITE_ENABLED, false);
-}
-
-
-async function isResponsesPromptCacheKeyEnabled(): Promise<boolean> {
-    return await getBoolean(RESPONSES_PROMPT_CACHE_KEY_ENABLED, false);
-}
-
 export default {
-    getValue,
+    getConfig,
     setValue,
-    getBoolean,
-    setBoolean,
     getAll,
     updateAll,
-    isCchRewriteEnabled,
-    isResponsesPromptCacheKeyEnabled,
 };

@@ -22,7 +22,7 @@ import { injectResponsesPromptCacheKey } from "../util/responsesPromptCacheKeyRe
 import type { BaseConverter } from "../util/protocolConverter/BaseConverter";
 import type { ProtocolStreamEvent } from "../util/protocolConverter/protocolTypes";
 import sseEvent from "../util/sseEvent";
-import configService from "./configService";
+import configService, { ConfigKey } from "./configService";
 import hostService from "./hostService";
 import { runInBackground } from "../util/runInBackground";
 
@@ -793,7 +793,7 @@ async function sendRequest(
     }
 
     // 4. 请求体改写：根据高级设置将 system 中 x-anthropic-billing-header 的 cch 值固定为 A1234
-    if (await configService.isCchRewriteEnabled()) {
+    if ((await configService.getConfig(ConfigKey.CCH_REWRITE_ENABLED, "false")).getBoolean()) {
         upstreamBody = rewriteCchInSystemPrompt(upstreamBody);
     }
 
@@ -830,8 +830,8 @@ async function sendRequest(
         }
     }
 
-    if (upstreamFormat === ApiFormat.RESPONSES && await configService.isResponsesPromptCacheKeyEnabled()) {
-        const hostKey = await hostService.getResponsesPromptCacheHostKey();
+    if (upstreamFormat === ApiFormat.RESPONSES && (await configService.getConfig(ConfigKey.RESPONSES_PROMPT_CACHE_KEY_ENABLED, "false")).getBoolean()) {
+        const hostKey = await hostService.getHostKey();
         upstreamBody = injectResponsesPromptCacheKey(upstreamBody, hostKey, user.name);
     }
 

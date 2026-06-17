@@ -115,7 +115,7 @@ function handleLogoClick() {
     
     logoClickTimer = window.setTimeout(() => {
         logoClickCount = 0;
-    }, 1000); // 1秒内连按才算
+    }, 3000); // 3秒内连按才算
     
     if (logoClickCount >= 10) {
         appStore.enableDeveloperMode();

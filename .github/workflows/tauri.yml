@@ -143,15 +143,27 @@ jobs:
           npm_config_script_shell: bash
         with:
           projectPath: './tauri'
-          args: '--target x86_64-pc-windows-msvc --bundles nsis msi'
+          args: '--target x86_64-pc-windows-msvc --bundles nsis'
 
       - name: Upload Windows Artifacts
         shell: pwsh
         run: |
           $artifactsDir = "windows-artifacts"
           New-Item -ItemType Directory -Force -Path $artifactsDir | Out-Null
-          Get-ChildItem "tauri" -Recurse -Include "*.exe" -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*setup*" -or $_.Name -like "*Gateway*" } | Copy-Item -Destination $artifactsDir -Force -ErrorAction SilentlyContinue
-          Get-ChildItem "tauri" -Recurse -Include "*.msi" -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*Gateway*" } | Copy-Item -Destination $artifactsDir -Force -ErrorAction SilentlyContinue
+          
+          Get-ChildItem "tauri" -Recurse -Include "*.exe" -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*setup*" } | Copy-Item -Destination $artifactsDir -Force -ErrorAction SilentlyContinue
+          
+          $portableDir = "$artifactsDir\GT_AI_Gateway_Portable"
+          New-Item -ItemType Directory -Force -Path $portableDir | Out-Null
+          $releaseDir = "tauri\src-tauri\target\x86_64-pc-windows-msvc\release"
+          Copy-Item -Path "$releaseDir\ai-gateway.exe" -Destination $portableDir -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path "$releaseDir\ai-gateway-backend-x86_64-pc-windows-msvc.exe" -Destination $portableDir -Force -ErrorAction SilentlyContinue
+          if (Test-Path "$releaseDir\icons") { Copy-Item -Path "$releaseDir\icons" -Destination $portableDir -Recurse -Force }
+          if (Test-Path "$releaseDir\resource") { Copy-Item -Path "$releaseDir\resource" -Destination $portableDir -Recurse -Force }
+          
+          Compress-Archive -Path $portableDir -DestinationPath "$artifactsDir\GT_AI_Gateway_Portable.zip" -Force
+          Remove-Item -Recurse -Force $portableDir
+          
           Get-ChildItem $artifactsDir | ForEach-Object { Write-Host "UPLOAD: $($_.Name) ($($_.Length) bytes)" }
 
       - name: Upload Artifacts
@@ -211,7 +223,7 @@ jobs:
         run: |
           tag="${GITHUB_REF_NAME}"
           mapfile -t dmg_assets < <(find release-artifacts -type f -name "*.dmg" 2>/dev/null | sort)
-          mapfile -t win_assets < <(find release-artifacts-win -type f \( -name "*.exe" -o -name "*.msi" \) 2>/dev/null | sort)
+          mapfile -t win_assets < <(find release-artifacts-win -type f \( -name "*.exe" -o -name "*.zip" \) 2>/dev/null | sort)
           assets=("${dmg_assets[@]}" "${win_assets[@]}")
 
           if gh release view "$tag" >/dev/null 2>&1; then

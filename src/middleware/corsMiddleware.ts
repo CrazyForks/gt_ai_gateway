@@ -5,6 +5,7 @@ const allowCors = cors({
         if (!origin) return "*";
         if (
             origin.startsWith("tauri://") ||
+            origin.startsWith("http://tauri.localhost") ||
             origin.startsWith("http://localhost") ||
             origin.startsWith("http://127.0.0.1")
         ) {

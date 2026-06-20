@@ -80,6 +80,5 @@ export default defineConfig({
         },
         // Tauri v2 自定义协议下需要去掉 crossorigin
         modulePreload: false,
-        crossOrigin: false,
     },
 })

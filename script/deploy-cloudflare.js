@@ -53,6 +53,10 @@ for (const arg of process.argv.slice(2)) {
 function run(command, commandArgs, options = {}) {
     console.log(`> ${[command, ...commandArgs].join(" ")}`);
     const result = spawnSync(command, commandArgs, {
+        env: {
+            ...process.env,
+            ...(options.env || {}),
+        },
         input: options.input,
         stdio: options.stdio || "inherit",
         shell: process.platform === "win32",
@@ -281,8 +285,28 @@ function runDeploySetup() {
     setupRootToken();
 }
 
+function syncSubmodules() {
+    if (!fs.existsSync(".gitmodules")) {
+        return;
+    }
+
+    const gitHttpsRewriteEnv = {
+        GIT_CONFIG_COUNT: "2",
+        GIT_CONFIG_KEY_0: "url.https://github.com/.insteadOf",
+        GIT_CONFIG_VALUE_0: "git@github.com:",
+        GIT_CONFIG_KEY_1: "url.https://github.com/.insteadOf",
+        GIT_CONFIG_VALUE_1: "ssh://git@github.com/",
+    };
+
+    console.log("Initializing git submodules...");
+    run("git", ["submodule", "sync", "--recursive"], { env: gitHttpsRewriteEnv });
+    run("git", ["submodule", "update", "--init", "--recursive"], { env: gitHttpsRewriteEnv });
+}
+
 try {
     runDeploySetup();
+    syncSubmodules();
+    run("npm", ["ci", "--prefix", "frontend", "--progress=false"]);
     run("npm", ["run", "frontend:build"]);
     run("npx", ["wrangler", "deploy", "--minify", ...wranglerArgs]);
 } catch (error) {

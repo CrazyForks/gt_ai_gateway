@@ -3,7 +3,6 @@ const crypto = require("crypto");
 const fs = require("fs");
 
 const WRANGLER_CONFIG_PATH = "wrangler.toml";
-const DATABASE_ID_PLACEHOLDER = "replace-with-your-d1-database-id";
 const DEFAULT_DATABASE_NAME = "gt_ai_gateway";
 const DEFAULT_D1_BINDING = "DB";
 const DEPLOY_SETUP_FLAGS = new Set(["--auto-create-db", "--auto-migrate", "--auto-create-root-token"]);
@@ -103,63 +102,6 @@ function getConfiguredD1Binding() {
     const d1Block = toml.match(/\[\[d1_databases\]\]([\s\S]*?)(?:\n\[|$)/);
     const bindingMatch = d1Block?.[1]?.match(/binding\s*=\s*"([^"]+)"/);
     return bindingMatch?.[1] || DEFAULT_D1_BINDING;
-}
-
-function updateDatabaseId(databaseId) {
-    const toml = readWranglerConfig();
-    let nextToml = toml.replace(
-        /^(\s*)database_id\s*=\s*".*?"/m,
-        `$1database_id = "${databaseId}"`,
-    );
-
-    if (nextToml !== toml) {
-        fs.writeFileSync(WRANGLER_CONFIG_PATH, nextToml);
-        return;
-    }
-
-    const d1BlockStart = toml.indexOf("[[d1_databases]]");
-    if (d1BlockStart === -1) {
-        throw new Error(`Could not find [[d1_databases]] in ${WRANGLER_CONFIG_PATH}`);
-    }
-
-    const d1BlockHeaderEnd = d1BlockStart + "[[d1_databases]]".length;
-    const nextTableMatch = toml.slice(d1BlockHeaderEnd).match(/\n\[/);
-    const d1BlockEnd = nextTableMatch
-        ? d1BlockHeaderEnd + nextTableMatch.index
-        : toml.length;
-    const d1Block = toml.slice(d1BlockStart, d1BlockEnd);
-    const databaseIdLine = `database_id = "${databaseId}"`;
-    let nextD1Block = d1Block.replace(
-        /^(\s*database_name\s*=\s*".*?")\s*$/m,
-        `$1\n${databaseIdLine}`,
-    );
-
-    if (nextD1Block === d1Block) {
-        nextD1Block = d1Block.replace(
-            /^(\s*binding\s*=\s*".*?")\s*$/m,
-            `$1\n${databaseIdLine}`,
-        );
-    }
-
-    if (nextD1Block === d1Block) {
-        const separator = d1Block.endsWith("\n") ? "" : "\n";
-        nextD1Block = `${d1Block}${separator}${databaseIdLine}`;
-    }
-
-    nextToml = `${toml.slice(0, d1BlockStart)}${nextD1Block}${toml.slice(d1BlockEnd)}`;
-    fs.writeFileSync(WRANGLER_CONFIG_PATH, nextToml);
-}
-
-function ensureDatabaseIdConfigured() {
-    const toml = readWranglerConfig();
-    if (!toml.includes(`database_id = "${DATABASE_ID_PLACEHOLDER}"`)) {
-        return;
-    }
-
-    console.error(`${WRANGLER_CONFIG_PATH} still contains the D1 database_id placeholder.`);
-    console.error("Run `npm run deploy -- --auto-create-db` to create/link D1 automatically,");
-    console.error("or manually create a D1 database and replace database_id before deploying.");
-    process.exit(1);
 }
 
 function listDatabases() {
@@ -272,7 +214,6 @@ function setupDatabase() {
         const database = findDatabaseById(databaseId);
         const databaseLabel = database?.name || databaseId;
         console.log(`Reusing deployed D1 binding ${bindingName}: ${databaseLabel}`);
-        updateDatabaseId(databaseId);
 
         runMigrations(bindingName);
         return;
@@ -288,8 +229,7 @@ function setupDatabase() {
         throw new Error(`D1 database ${databaseName} does not include an id`);
     }
 
-    console.log(`Linking database ID ${databaseId} to ${WRANGLER_CONFIG_PATH}`);
-    updateDatabaseId(databaseId);
+    console.log(`Using D1 database ${databaseName}: ${databaseId}`);
 
     runMigrations(bindingName);
 }
@@ -329,7 +269,6 @@ function setupRootToken() {
 
 function runDeploySetup() {
     if (!hasDeploySetupFlags()) {
-        ensureDatabaseIdConfigured();
         return;
     }
 

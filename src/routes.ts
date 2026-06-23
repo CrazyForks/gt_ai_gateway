@@ -1,5 +1,4 @@
 import { Hono, MiddlewareHandler, HTTPException } from "hono";
-import { logger } from "hono/logger";
 import { join } from "path";
 import { readFileSync } from "fs";
 import gatewayController from "./controller/gatewayController";
@@ -39,7 +38,14 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 app.use("*", corsMiddleware.allowCors);
 
 // 注册日志中间件
-app.use("*", logger());
+app.use("*", async (c, next) => {
+    const start = Date.now();
+    const { method, url } = c.req;
+    const path = url.slice(url.indexOf("/", 8));
+    console.log(`↑ ${method} ${path}`);
+    await next();
+    console.log(`↓ ${method} ${path} ${c.res.status} ${Date.now() - start}ms`);
+});
 
 // 注册数据库中间件（最前面）
 app.use("*", dbMiddleware);

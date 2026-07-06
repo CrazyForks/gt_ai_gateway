@@ -78,6 +78,7 @@ async function bootstrap() {
         autocapture: false,
         capture_pageview: false,
         disable_session_recording: true,
+        opt_out_capturing_by_default: true,
     });
     
     // Default to opt-in, we will opt-out later if the config says so

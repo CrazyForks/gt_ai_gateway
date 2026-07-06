@@ -66,6 +66,19 @@
                             />
                         </div>
                     </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-title">禁用开发者数据共享</div>
+                            <div class="setting-desc">启用后，将彻底禁用所有的遥测请求。此配置全局生效。</div>
+                        </div>
+                        <div class="setting-action">
+                            <a-switch
+                                :checked="form.telemetry_disabled"
+                                @change="form.telemetry_disabled = $event as boolean"
+                                :disabled="saving"
+                            />
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -147,6 +160,7 @@ const originalConfig = reactive({
     claude_code_tracking_rewrite_enabled: true,
     stream_log_enabled: false,
     auto_update_enabled: true,
+    telemetry_disabled: false,
 });
 
 const form = reactive({
@@ -155,6 +169,7 @@ const form = reactive({
     claude_code_tracking_rewrite_enabled: true,
     stream_log_enabled: false,
     auto_update_enabled: true,
+    telemetry_disabled: false,
 });
 
 const isDirty = computed(() => {
@@ -162,7 +177,8 @@ const isDirty = computed(() => {
            form.responses_prompt_cache_key_enabled !== originalConfig.responses_prompt_cache_key_enabled ||
            form.claude_code_tracking_rewrite_enabled !== originalConfig.claude_code_tracking_rewrite_enabled ||
            form.stream_log_enabled !== originalConfig.stream_log_enabled ||
-           form.auto_update_enabled !== originalConfig.auto_update_enabled;
+           form.auto_update_enabled !== originalConfig.auto_update_enabled ||
+           form.telemetry_disabled !== originalConfig.telemetry_disabled;
 });
 
 onMounted(() => {
@@ -187,6 +203,9 @@ async function loadConfig(): Promise<void> {
 
         form.auto_update_enabled = config.auto_update_enabled !== "false";
         originalConfig.auto_update_enabled = config.auto_update_enabled !== "false";
+
+        form.telemetry_disabled = config.telemetry_disabled === "true";
+        originalConfig.telemetry_disabled = config.telemetry_disabled === "true";
         // 始终拉取一次 status，确保 mode（用于判断是否 worker 模式）是最新的
         await appStore.fetchVersion();
     } finally {
@@ -200,6 +219,7 @@ function cancelChanges() {
     form.claude_code_tracking_rewrite_enabled = originalConfig.claude_code_tracking_rewrite_enabled;
     form.stream_log_enabled = originalConfig.stream_log_enabled;
     form.auto_update_enabled = originalConfig.auto_update_enabled;
+    form.telemetry_disabled = originalConfig.telemetry_disabled;
 }
 
 async function doCheckUpdate() {
@@ -243,6 +263,7 @@ async function saveConfig() {
             claude_code_tracking_rewrite_enabled: form.claude_code_tracking_rewrite_enabled ? "true" : "false",
             stream_log_enabled: form.stream_log_enabled ? "true" : "false",
             auto_update_enabled: form.auto_update_enabled ? "true" : "false",
+            telemetry_disabled: form.telemetry_disabled ? "true" : "false",
         });
         message.success('配置已保存');
         originalConfig.cch_rewrite_enabled = form.cch_rewrite_enabled;
@@ -250,6 +271,16 @@ async function saveConfig() {
         originalConfig.claude_code_tracking_rewrite_enabled = form.claude_code_tracking_rewrite_enabled;
         originalConfig.stream_log_enabled = form.stream_log_enabled;
         originalConfig.auto_update_enabled = form.auto_update_enabled;
+        originalConfig.telemetry_disabled = form.telemetry_disabled;
+        
+        // Update posthog capturing state immediately in the current tab
+        if ((window as any).posthog) {
+            if (form.telemetry_disabled) {
+                (window as any).posthog.opt_out_capturing();
+            } else {
+                (window as any).posthog.opt_in_capturing();
+            }
+        }
     } catch {
         // error handling is typically done by the request interceptor
     } finally {

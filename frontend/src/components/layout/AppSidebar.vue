@@ -124,6 +124,15 @@ onMounted(() => {
     
     // Check for updates if auto-update is enabled
     getConfig().then(config => {
+        // Handle PostHog telemetry opt-in/opt-out based on backend config
+        if ((window as any).posthog) {
+            if (config.telemetry_disabled === 'true') {
+                (window as any).posthog.opt_out_capturing();
+            } else {
+                (window as any).posthog.opt_in_capturing();
+            }
+        }
+
         if (config.auto_update_enabled !== 'false') {
             checkUpdate().then(status => {
                 hasUpdate.value = status.has_update;
@@ -135,7 +144,7 @@ onMounted(() => {
             });
         }
     }).catch(e => {
-        console.error('Failed to load config for update check:', e);
+        console.error('Failed to load config:', e);
     });
 });
 

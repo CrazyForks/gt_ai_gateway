@@ -7,6 +7,7 @@ export enum ConfigKey {
     HOST_KEY = "host_key",
     STREAM_LOG_ENABLED = "stream_log_enabled",
     AUTO_UPDATE_ENABLED = "auto_update_enabled",
+    TELEMETRY_DISABLED = "telemetry_disabled",
 }
 
 // 各配置项的默认值集中在此维护，调用方无需再传默认值。
@@ -18,6 +19,7 @@ const CONFIG_DEFAULTS: Record<string, string> = {
     [ConfigKey.HOST_KEY]: "",
     [ConfigKey.STREAM_LOG_ENABLED]: "false",
     [ConfigKey.AUTO_UPDATE_ENABLED]: "true",
+    [ConfigKey.TELEMETRY_DISABLED]: "false",
 };
 
 function getDefault(name: string): string {

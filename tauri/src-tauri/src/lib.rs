@@ -1,4 +1,5 @@
 mod sys;
+pub mod utils;
 
 use std::fs;
 use std::path::Path;
@@ -274,8 +275,8 @@ pub fn run() {
 
 
 
-            // 存储后端 URL 和 auth token，供前端查询
-            let backend_url = format!("http://{}:{}", config.host, config.port);
+            // 存储后端 URL 和 auth token，供前端查询。如果配置为 0.0.0.0，前端连接应使用 127.0.0.1
+            let backend_url = utils::generate_client_url(&config.host, config.port);
             app.manage(BackendUrl(backend_url));
             app.manage(AuthToken(config.root_token.clone()));
 

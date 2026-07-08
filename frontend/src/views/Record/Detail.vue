@@ -140,13 +140,15 @@
 
                         <a-tab-pane key="request_json" tab="请求数据 (JSON)">
                             <div class="json-pane-content">
-                                <JsonViewer ref="requestJsonRef" :data="recordStore.currentRecord.request_data" :expanded="isRequestExpanded" />
+                                <div v-if="!recordStore.currentRecord.request_data" class="no-payload-hint">请求内容未记录</div>
+                                <JsonViewer v-else ref="requestJsonRef" :data="recordStore.currentRecord.request_data" :expanded="isRequestExpanded" />
                             </div>
                         </a-tab-pane>
 
                         <a-tab-pane key="response_json" tab="响应数据 (JSON)">
                             <div class="json-pane-content">
-                                <JsonViewer ref="responseJsonRef" :data="recordStore.currentRecord.response_data" :expanded="isResponseExpanded" />
+                                <div v-if="!recordStore.currentRecord.response_data" class="no-payload-hint">响应内容未记录</div>
+                                <JsonViewer v-else ref="responseJsonRef" :data="recordStore.currentRecord.response_data" :expanded="isResponseExpanded" />
                             </div>
                         </a-tab-pane>
 
@@ -420,6 +422,13 @@ async function downloadJson(data: string | null, type: 'request' | 'response') {
 
 .error-message-text {
     color: #ff4d4f;
+}
+
+.no-payload-hint {
+    padding: 24px 0;
+    text-align: center;
+    color: var(--text-secondary, #999);
+    font-size: 13px;
 }
 
 .token-item {

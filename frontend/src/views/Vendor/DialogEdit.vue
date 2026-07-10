@@ -173,7 +173,7 @@ const rules = {
     token: [{ required: true, message: '请输入 API Token' }],
 };
 
-function open(vendor: Vendor) {
+async function open(vendor: Vendor) {
     currentId.value = vendor.id;
     formState.type = vendor.type;
     formState.name = vendor.name;
@@ -186,7 +186,7 @@ function open(vendor: Vendor) {
         if (url !== undefined) urlsForm.push({ type: key, url });
     });
 
-    void loadPresets();
+    await loadPresets();
     urlsMode.value = PRESET_URLS.value[vendor.type] ? 'view' : 'edit';
     advancedActiveKey.value = [];
     visible.value = true;

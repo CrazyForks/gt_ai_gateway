@@ -1,10 +1,10 @@
 /**
  * Chat 族累加器共享类型
- * OpenAIChatAccumulator 和 AnthropicMessagesAccumulator 都把流累积成这个统一形态
+ * OpenAIChatAccumulator 和 AnthropicAccumulator 都把流累积成这个统一形态
  * （Anthropic 的 tool_use/thinking/signature 等字段也并入其中，便于上层统一处理）。
  */
 
-export interface ChatAccumulatedResponse {
+export interface AccumulatedResponse {
     id?: string;
     object?: string;
     created?: number;

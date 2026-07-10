@@ -12,7 +12,7 @@ import userService from "./userService";
 import streamLogService from "./streamLogService";
 import usageUtils, { type Dict } from "../util/usageUtils";
 import openaiChatAccumulator from "../util/accumulator/openaiChatAccumulator";
-import anthropicMessagesAccumulator from "../util/accumulator/anthropicMessagesAccumulator";
+import anthropicAccumulator from "../util/accumulator/anthropicAccumulator";
 import responsesAccumulator from "../util/accumulator/responsesAccumulator";
 import sseEvent from "../util/sseEvent";
 import { runInBackground } from "../util/runInBackground";
@@ -30,7 +30,7 @@ export async function handleChatStreamResponse(
 ): Promise<Response> {
     const needsConversion = format !== upstreamFormat;
     const accumulator = format === ApiFormat.ANTHROPIC
-        ? new anthropicMessagesAccumulator.AnthropicMessagesAccumulator()
+        ? new anthropicAccumulator.AnthropicAccumulator()
         : new openaiChatAccumulator.OpenAIChatAccumulator();
 
     let firstTokenTime: number | null = null;

@@ -1,12 +1,12 @@
 /**
  * OpenAI Chat Completions 流式响应累加器
  * 累积 Chat Completions delta 流，组装成完整响应对象。
- * 与 anthropicMessagesAccumulator / responsesAccumulator 并列，各处理一种协议。
+ * 与 anthropicAccumulator / responsesAccumulator 并列，各处理一种协议。
  */
 
 import type { ProtocolStreamEvent } from "../protocolConverter/protocolTypes";
 import { AccumulatorBase } from "./accumulatorBase";
-import type { ChatAccumulatedResponse } from "./chatAccumulatorTypes";
+import type { AccumulatedResponse } from "./accumulatorTypes";
 
 interface OpenAIChatChunk {
     id?: string;
@@ -46,7 +46,7 @@ interface OpenAIChatChunk {
 }
 
 export class OpenAIChatAccumulator extends AccumulatorBase {
-    private response: ChatAccumulatedResponse = {
+    private response: AccumulatedResponse = {
         choices: [{ index: 0, message: { content: "", thinking: "", signature: "" }, finish_reason: null }],
     };
 
@@ -181,7 +181,7 @@ export class OpenAIChatAccumulator extends AccumulatorBase {
     /**
      * 获取累积的完整响应
      */
-    getResponse(): ChatAccumulatedResponse {
+    getResponse(): AccumulatedResponse {
         const toolUseList = this.response.choices[0]?.message.tool_use;
         if (toolUseList) {
             for (const toolUse of toolUseList) {
@@ -208,7 +208,7 @@ export class OpenAIChatAccumulator extends AccumulatorBase {
     /**
      * 获取累积的 usage（来自流末尾 chunk）
      */
-    getUsage(): ChatAccumulatedResponse["usage"] | null {
+    getUsage(): AccumulatedResponse["usage"] | null {
         return this.response.usage ?? null;
     }
 

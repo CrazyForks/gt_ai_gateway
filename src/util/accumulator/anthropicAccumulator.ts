@@ -1,12 +1,12 @@
 /**
  * Anthropic Messages 流式响应累加器
- * 累积 Messages delta 流，组装成与 OpenAI Chat 同构的完整响应对象（ChatAccumulatedResponse）。
+ * 累积 Messages delta 流，组装成与 OpenAI Chat 同构的完整响应对象（AccumulatedResponse）。
  * 与 openaiChatAccumulator / responsesAccumulator 并列，各处理一种协议。
  */
 
 import type { ProtocolStreamEvent } from "../protocolConverter/protocolTypes";
 import { AccumulatorBase } from "./accumulatorBase";
-import type { ChatAccumulatedResponse } from "./chatAccumulatorTypes";
+import type { AccumulatedResponse } from "./accumulatorTypes";
 
 interface AnthropicChunk {
     type?: string;
@@ -49,8 +49,8 @@ interface AnthropicChunk {
     index?: number;
 }
 
-export class AnthropicMessagesAccumulator extends AccumulatorBase {
-    private response: ChatAccumulatedResponse = {
+export class AnthropicAccumulator extends AccumulatorBase {
+    private response: AccumulatedResponse = {
         choices: [{ index: 0, message: { content: "", thinking: "", signature: "" }, finish_reason: null }],
     };
 
@@ -197,7 +197,7 @@ export class AnthropicMessagesAccumulator extends AccumulatorBase {
     /**
      * 获取累积的完整响应
      */
-    getResponse(): ChatAccumulatedResponse {
+    getResponse(): AccumulatedResponse {
         const toolUseList = this.response.choices[0]?.message.tool_use;
         if (toolUseList) {
             for (const toolUse of toolUseList) {
@@ -224,7 +224,7 @@ export class AnthropicMessagesAccumulator extends AccumulatorBase {
     /**
      * 获取累积的 usage（来自 message_start / message_delta / message_stop）
      */
-    getUsage(): ChatAccumulatedResponse["usage"] | null {
+    getUsage(): AccumulatedResponse["usage"] | null {
         return this.response.usage ?? null;
     }
 
@@ -242,5 +242,5 @@ export class AnthropicMessagesAccumulator extends AccumulatorBase {
 }
 
 export default {
-    AnthropicMessagesAccumulator,
+    AnthropicAccumulator,
 };

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import anthropicMessagesAccumulator from "../../../src/util/accumulator/anthropicMessagesAccumulator";
+import anthropicAccumulator from "../../../src/util/accumulator/anthropicAccumulator";
 
 function requireFixture(fileName: string): string {
     const logFile = join(__dirname, "..", "..", "resource", "stream_logs", fileName);
@@ -14,7 +14,7 @@ function requireFixture(fileName: string): string {
 }
 
 function parseAnthropicStream(content: string) {
-    const accumulator = new anthropicMessagesAccumulator.AnthropicMessagesAccumulator();
+    const accumulator = new anthropicAccumulator.AnthropicAccumulator();
     const events = content.split("\n\n").filter((event) => event.trim());
 
     for (const event of events) {
@@ -38,7 +38,7 @@ function parseAnthropicStream(content: string) {
     return accumulator.getResponse();
 }
 
-describe("AnthropicMessagesAccumulator fixtures", () => {
+describe("AnthropicAccumulator fixtures", () => {
     it("parses anthropic non-tool stream fixture", () => {
         const response = parseAnthropicStream(requireFixture("anthropic-stream.log"));
 
@@ -74,9 +74,9 @@ describe("AnthropicMessagesAccumulator fixtures", () => {
     });
 });
 
-describe("AnthropicMessagesAccumulator stream state", () => {
+describe("AnthropicAccumulator stream state", () => {
     it("marks completed on message_stop", () => {
-        const acc = new anthropicMessagesAccumulator.AnthropicMessagesAccumulator();
+        const acc = new anthropicAccumulator.AnthropicAccumulator();
         acc.addEvent({ data: JSON.stringify({ type: "content_block_delta", delta: { type: "text_delta", text: "hi" } }), event: "content_block_delta" });
         acc.addEvent({ data: JSON.stringify({ type: "message_stop" }), event: "message_stop" });
 
@@ -85,7 +85,7 @@ describe("AnthropicMessagesAccumulator stream state", () => {
     });
 
     it("flags output started on lifecycle events (preserves TTFT semantics)", () => {
-        const acc = new anthropicMessagesAccumulator.AnthropicMessagesAccumulator();
+        const acc = new anthropicAccumulator.AnthropicAccumulator();
         acc.addEvent({ data: JSON.stringify({ type: "message_start", message: { id: "m1", model: "claude" } }), event: "message_start" });
 
         // message_start 是非完成/非错误事件，按现行 TTFT 语义计为 outputStarted
@@ -94,7 +94,7 @@ describe("AnthropicMessagesAccumulator stream state", () => {
     });
 
     it("marks errored on error event", () => {
-        const acc = new anthropicMessagesAccumulator.AnthropicMessagesAccumulator();
+        const acc = new anthropicAccumulator.AnthropicAccumulator();
         acc.addEvent({ data: JSON.stringify({ type: "error", error: { message: "rate limited" } }), event: "error" });
 
         expect(acc.isErrored()).toBe(true);
@@ -102,7 +102,7 @@ describe("AnthropicMessagesAccumulator stream state", () => {
     });
 
     it("reset clears all state", () => {
-        const acc = new anthropicMessagesAccumulator.AnthropicMessagesAccumulator();
+        const acc = new anthropicAccumulator.AnthropicAccumulator();
         acc.addEvent({ data: JSON.stringify({ type: "content_block_delta", delta: { type: "text_delta", text: "hi" } }), event: "content_block_delta" });
         acc.addEvent({ data: JSON.stringify({ type: "message_stop" }), event: "message_stop" });
         acc.reset();

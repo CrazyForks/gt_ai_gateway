@@ -1,6 +1,5 @@
 import { Context } from "hono";
 import { SgRecord, RECORD_SUMMARY_COLUMNS } from "../model/sgRecord";
-import { SgStorageRecord } from "../model/sgStorageRecord";
 import recordService from "../service/recordService";
 import { parsePaginationQuery } from "../util/pagination";
 
@@ -106,9 +105,8 @@ async function deleteRecord(c: Context) {
 }
 
 async function clearPayload(c: Context) {
-    const count = Number(await SgStorageRecord.query().count() || 0);
-    await SgStorageRecord.query().delete();
-    return c.json({ success: true, cleared: count });
+    const cleared = await recordService.clearPayloads();
+    return c.json({ success: true, cleared });
 }
 
 async function clearAll(c: Context) {

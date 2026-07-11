@@ -28,8 +28,12 @@ let cachedConfigKey = "";
 
 function buildConfigKey(config?: DispatcherConfig): string {
     if (!config) return "";
+    const skipTls = config.skip_tls_verify === true;
     const proxy = config.proxy;
-    return `${config.skip_tls_verify ?? false}|${proxy?.type ?? "none"}|${proxy?.url ?? ""}`;
+    const proxyType = proxy?.type ?? "";
+    const proxyUrl = proxy?.url ?? "";
+    if (!skipTls && !proxyUrl) return "";
+    return `${skipTls}|${proxyType || "none"}|${proxyUrl}`;
 }
 
 

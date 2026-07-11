@@ -3,53 +3,99 @@
  *
  * 验证：
  * - DELETE /record/:id 删除单条记录
- * - DELETE /record/clear-payload 清除存储记录
+ * - DELETE /record/clear-payload 清除请求记录 payload
  * - DELETE /record/clear-all 删除所有记录
  */
 import { describe, it, expect, beforeAll } from "vitest";
 import requestHelper from "../../helpers/requestHelper";
 import dbHelper from "../../helpers/dbHelper";
 import { setupAdminUser } from "../../globalSetup";
+import mockHelper from "../../helpers/mockHelper";
+import vendorFixtures from "../../fixtures/vendorFixtures";
+import modelFixtures from "../../fixtures/modelFixtures";
 
 
 let adminToken: string;
+let testUserToken: string;
+let testModelName: string;
 
-function insertTestRecord(): void {
-    dbHelper.execute(
-        "INSERT INTO record (user_id, model_id, status, created_at, updated_at) VALUES (1, 1, 'success', datetime('now'), datetime('now'))",
+
+async function createTestRecord(): Promise<any> {
+    const chatRes = await requestHelper.post(
+        "/llm/v1/chat/completions",
+        mockHelper.generateOpenAIChatRequest({ model: testModelName, stream: false }),
+        testUserToken,
     );
+    expect(chatRes.status, JSON.stringify(chatRes.body)).toBe(200);
+
+    const latestRes = await requestHelper.get("/record/latest.json?limit=1", adminToken);
+    expect(latestRes.status, JSON.stringify(latestRes.body)).toBe(200);
+    expect(latestRes.body.length).toBeGreaterThan(0);
+    return latestRes.body[0];
 }
 
-function insertTestStorageRecord(recordId: number): void {
-    dbHelper.execute(
-        `INSERT INTO storage_record (object_key, size_bytes, data, created_at, updated_at) VALUES ('record/${recordId}', 10, X'00', datetime('now'), datetime('now'))`,
+
+async function getRecordCount(): Promise<number> {
+    const res = await requestHelper.get("/record/list.json", adminToken);
+    expect(res.status).toBe(200);
+    return res.body.total;
+}
+
+
+async function assertRecordPayload(recordId: number, hasPayload: boolean): Promise<void> {
+    const res = await requestHelper.get(`/record/${recordId}`, adminToken);
+    expect(res.status).toBe(200);
+
+    if (hasPayload) {
+        expect(res.body.request_data).not.toBeNull();
+        expect(res.body.response_data).not.toBeNull();
+        return;
+    }
+
+    expect(res.body.request_data).toBeNull();
+    expect(res.body.response_data).toBeNull();
+}
+
+
+async function setupModel(): Promise<void> {
+    const user = await requestHelper.post(
+        "/user/create.json",
+        mockHelper.generateUser(),
+        adminToken,
     );
+    expect(user.status).toBe(200);
+    testUserToken = user.body.token;
+
+    const vendor = await requestHelper.post(
+        "/vendor/create.json",
+        vendorFixtures.VENDOR_FIXTURES.openai(),
+        adminToken,
+    );
+    expect(vendor.status).toBe(200);
+
+    testModelName = `record-delete-model-${Date.now()}`;
+    const model = await requestHelper.post(
+        "/model/create.json",
+        modelFixtures.createRandomModel(vendor.body.id, testModelName),
+        adminToken,
+    );
+    expect(model.status).toBe(200);
 }
 
-function getRecordCount(): number {
-    const rows: any[] = dbHelper.query("SELECT COUNT(*) as cnt FROM record");
-    return rows[0].cnt;
-}
-
-function getStorageCount(): number {
-    const rows: any[] = dbHelper.query("SELECT COUNT(*) as cnt FROM storage_record");
-    return rows[0].cnt;
-}
 
 describe("Record Delete API", () => {
     beforeAll(async () => {
         await dbHelper.truncate();
         adminToken = await setupAdminUser();
+        await setupModel();
     });
 
     describe("DELETE /record/:id", () => {
         it("should delete a single record", async () => {
-            insertTestRecord();
-            const countBefore = getRecordCount();
+            const record = await createTestRecord();
 
-            const res = await requestHelper.del(`/record/${countBefore}`, adminToken);
-            // The record ID might vary, just check the endpoint works
-            expect([200, 404]).toContain(res.status);
+            const res = await requestHelper.del(`/record/${record.id}`, adminToken);
+            expect(res.status).toBe(200);
         });
 
         it("should return 404 for non-existent record", async () => {
@@ -64,29 +110,25 @@ describe("Record Delete API", () => {
     });
 
     describe("DELETE /record/clear-payload", () => {
-        it("should clear all storage records", async () => {
-            // Insert storage records
-            insertTestStorageRecord(1);
-            insertTestStorageRecord(2);
-            const storageBefore = getStorageCount();
-            expect(storageBefore).toBeGreaterThanOrEqual(2);
+        it("should clear all record payloads", async () => {
+            const record = await createTestRecord();
+            await assertRecordPayload(record.id, true);
 
             const res = await requestHelper.del("/record/clear-payload", adminToken);
             expect(res.status).toBe(200);
             expect(res.body.success).toBe(true);
+            expect(res.body.cleared).toBeGreaterThan(0);
 
-            // Storage should be cleared
-            expect(getStorageCount()).toBe(0);
+            await assertRecordPayload(record.id, false);
         });
     });
 
     describe("DELETE /record/clear-all", () => {
         it("should delete all records", async () => {
-            // Insert records
-            insertTestRecord();
-            insertTestRecord();
-            insertTestRecord();
-            const countBefore = getRecordCount();
+            await createTestRecord();
+            await createTestRecord();
+            await createTestRecord();
+            const countBefore = await getRecordCount();
             expect(countBefore).toBeGreaterThanOrEqual(3);
 
             const res = await requestHelper.del("/record/clear-all", adminToken);
@@ -95,7 +137,7 @@ describe("Record Delete API", () => {
             expect(res.body.deleted).toBeGreaterThanOrEqual(3);
 
             // All records deleted
-            expect(getRecordCount()).toBe(0);
+            expect(await getRecordCount()).toBe(0);
         });
     });
 });

@@ -22,6 +22,12 @@ function assertValidKey(key: string) {
     }
 }
 
+function assertValidPrefix(prefix: string) {
+    if (!prefix || !prefix.trim()) {
+        throw new customError.AppError("object key prefix is required", 400);
+    }
+}
+
 function normalizeBytes(data: unknown): Uint8Array {
     if (data instanceof Uint8Array) {
         return new Uint8Array(data);
@@ -132,6 +138,39 @@ async function deleteObject(key: string) {
     await deleteFromTable(key);
 }
 
+
+async function deleteByPrefix(prefix: string): Promise<number> {
+    assertValidPrefix(prefix);
+
+    if (ormService.isWorker) {
+        const bucket = getWorkerBucket();
+        let cursor: string | undefined;
+        const deleteBatches: string[][] = [];
+        let deleted = 0;
+
+        do {
+            const page = await bucket.list({ cursor, limit: 1000, prefix });
+            const keys = page.objects.map(object => object.key);
+            if (keys.length > 0) {
+                deleteBatches.push(keys);
+                deleted += keys.length;
+            }
+            cursor = page.truncated ? page.cursor : undefined;
+        } while (cursor);
+
+        for (const keys of deleteBatches) {
+            await bucket.delete(keys);
+        }
+
+        return deleted;
+    }
+
+    const pattern = `${prefix}%`;
+    const deleted = await SgStorageRecord.query().where("object_key", "like", pattern).delete();
+    return Number(deleted || 0);
+}
+
+
 async function putText(key: string, text: string) {
     await put(key, new TextEncoder().encode(text));
 }
@@ -151,6 +190,7 @@ export default {
     put,
     get,
     delete: deleteObject,
+    deleteByPrefix,
     putText,
     getText,
 };

@@ -33,8 +33,35 @@ function createMockR2Bucket(): R2Bucket {
                 ),
             };
         }),
-        delete: vi.fn(async (key: string) => {
-            objects.delete(key);
+        delete: vi.fn(async (keys: string | string[]) => {
+            for (const key of Array.isArray(keys) ? keys : [keys]) {
+                objects.delete(key);
+            }
+        }),
+        list: vi.fn(async (options?: R2ListOptions) => {
+            const limit = options?.limit ?? 1000;
+            const start = options?.cursor ? Number(options.cursor) : 0;
+            const allKeys = [...objects.keys()]
+                .filter(key => !options?.prefix || key.startsWith(options.prefix))
+                .sort();
+            const pageKeys = allKeys.slice(start, start + limit);
+            const next = start + limit;
+            const objectsPage = pageKeys.map(key => ({ key }) as R2Object);
+
+            if (next < allKeys.length) {
+                return {
+                    objects: objectsPage,
+                    delimitedPrefixes: [],
+                    truncated: true,
+                    cursor: String(next),
+                } as R2Objects;
+            }
+
+            return {
+                objects: objectsPage,
+                delimitedPrefixes: [],
+                truncated: false,
+            } as R2Objects;
         }),
     } as unknown as R2Bucket;
 }
@@ -101,6 +128,19 @@ describe("objectStorageService", () => {
         expect(await objectStorageService.get(key)).toBeNull();
     });
 
+    it("deletes database objects by prefix", async () => {
+        await objectStorageService.put("record/clear-a", new Uint8Array([1]));
+        await objectStorageService.put("recording/clear-b", new Uint8Array([2]));
+        await objectStorageService.put("other/clear-c", new Uint8Array([3]));
+
+        const cleared = await objectStorageService.deleteByPrefix("record/");
+
+        expect(cleared).toBe(1);
+        expect(await objectStorageService.get("record/clear-a")).toBeNull();
+        expect(Array.from((await objectStorageService.get("recording/clear-b"))!)).toEqual([2]);
+        expect(Array.from((await objectStorageService.get("other/clear-c"))!)).toEqual([3]);
+    });
+
     it("uses R2 in worker mode", async () => {
         const bucket = createMockR2Bucket();
         ormService.mode = RunMode.WORKER;
@@ -115,6 +155,25 @@ describe("objectStorageService", () => {
 
         await objectStorageService.delete("worker/object");
         expect(await objectStorageService.get("worker/object")).toBeNull();
+    });
+
+    it("deletes R2 objects by prefix in worker mode", async () => {
+        const bucket = createMockR2Bucket();
+        ormService.mode = RunMode.WORKER;
+        objectStorageService.setR2Bucket(bucket);
+
+        await objectStorageService.put("record/clear-a", new Uint8Array([1]));
+        await objectStorageService.put("recording/clear-b", new Uint8Array([2]));
+        await objectStorageService.put("other/clear-c", new Uint8Array([3]));
+
+        const cleared = await objectStorageService.deleteByPrefix("record/");
+
+        expect(cleared).toBe(1);
+        expect(bucket.list).toHaveBeenCalledWith({ cursor: undefined, limit: 1000, prefix: "record/" });
+        expect(bucket.delete).toHaveBeenCalledWith(["record/clear-a"]);
+        expect(await objectStorageService.get("record/clear-a")).toBeNull();
+        expect(Array.from((await objectStorageService.get("recording/clear-b"))!)).toEqual([2]);
+        expect(Array.from((await objectStorageService.get("other/clear-c"))!)).toEqual([3]);
     });
 
     it("requires an R2 bucket in worker mode", async () => {

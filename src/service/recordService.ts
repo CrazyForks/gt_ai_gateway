@@ -8,6 +8,8 @@ interface RecordPayload {
     response: string | null;
 }
 
+const RECORD_PAYLOAD_PREFIX = "record/";
+
 function isLogEnabled(): boolean {
     return process.env.RECORD_LOG_ENABLED === "true";
 }
@@ -17,7 +19,7 @@ async function isPayloadRecordingEnabled(): Promise<boolean> {
 }
 
 function storageKey(recordId: number): string {
-    return `record/${recordId}`;
+    return `${RECORD_PAYLOAD_PREFIX}${recordId}`;
 }
 
 async function readPayload(recordId: number): Promise<RecordPayload> {
@@ -46,6 +48,10 @@ async function attachPayload(record: SgRecord): Promise<SgRecord> {
     record.request_data = payload.request;
     record.response_data = payload.response;
     return record;
+}
+
+async function clearPayloads(): Promise<number> {
+    return objectStorageService.deleteByPrefix(RECORD_PAYLOAD_PREFIX);
 }
 
 async function create(
@@ -157,4 +163,5 @@ export default {
     latest,
     recordFailedRequest,
     attachPayload,
+    clearPayloads,
 };

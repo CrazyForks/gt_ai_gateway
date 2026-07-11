@@ -203,13 +203,13 @@
             <a-radio-group v-model:value="deleteMode" style="display: flex; flex-direction: column; gap: 12px;">
                 <a-radio value="payload">
                     <div>
-                        <div style="font-weight: 500;">删除请求体和响应体</div>
+                        <div style="font-weight: 500;">删除请求体</div>
                         <div style="font-size: 12px; color: #8c8c8c;">保留请求记录元数据（时间、模型、Token 等），仅清除 request/response 原始内容</div>
                     </div>
                 </a-radio>
                 <a-radio value="all">
                     <div>
-                        <div style="font-weight: 500;">删除所有请求记录</div>
+                        <div style="font-weight: 500;">删除完整请求记录</div>
                         <div style="font-size: 12px; color: #8c8c8c;">彻底删除所有请求记录，此操作不可恢复</div>
                     </div>
                 </a-radio>
@@ -374,7 +374,7 @@ async function handleDeleteConfirm() {
     try {
         if (deleteMode.value === 'payload') {
             const res = await clearPayload();
-            message.success(`已清除 ${res.cleared} 条记录的请求体和响应体`);
+            message.success(`已清除 ${res.cleared} 条记录的请求体`);
         } else {
             const res = await clearAllRecords();
             message.success(`已删除 ${res.deleted} 条请求记录`);

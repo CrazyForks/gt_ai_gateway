@@ -20,7 +20,7 @@ describe("vendorService.findVendorByUrl", () => {
             type,
             name: `Test ${type} Vendor`,
             token: "test-token",
-            urls: JSON.stringify(urls),
+            urls: urls,
         }) as SgVendor;
     }
 

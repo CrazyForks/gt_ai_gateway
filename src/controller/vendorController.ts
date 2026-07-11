@@ -7,6 +7,7 @@ import vendorDefaultUrls from "../service/vendorDefaultUrls";
 import ormService from "../service/ormService";
 import senderService from "../service/senderService";
 import customError from "../util/customError";
+import fetchUtil from "../util/fetchUtil";
 import { ApiFormat, VendorAuthMode } from "../constants";
 import { createListResponse, parsePaginationQuery } from "../util/pagination";
 
@@ -20,8 +21,8 @@ function formatVendor(vendor: SgVendor, modelCount = 0) {
         type: vendor.type,
         name: vendor.name,
         token: vendor.token,
-        urls: vendor.getUrls(),
-        config: vendor.getConfig(),
+        urls: vendor.urls,
+        config: vendor.config,
         model_count: modelCount,
         created_at: vendor.created_at,
         updated_at: vendor.updated_at,
@@ -115,8 +116,8 @@ async function createVendor(c: Context) {
         type,
         name,
         token,
-        urls: urls ? JSON.stringify(urls) : "{}",
-        config: JSON.stringify(finalConfig),
+        urls: urls || {},
+        config: finalConfig,
     });
 
     return c.json(formatVendor(instance));
@@ -209,7 +210,7 @@ async function testVendor(c: Context) {
     let upstreamBody = "";
 
     if (requestFormat === ApiFormat.ANTHROPIC) {
-        if (vendor.isBearerTokenAuth()) {
+        if (vendor.config.auth_mode === VendorAuthMode.BEARER_TOKEN) {
             headers.set("Authorization", vendor.token.startsWith("Bearer ") ? vendor.token : `Bearer ${vendor.token}`);
         } else {
             headers.set("x-api-key", vendor.token);
@@ -242,10 +243,14 @@ async function testVendor(c: Context) {
     try {
         console.log(`[testVendor] Testing vendor ${vendor.name} (${vendor.id}) with model ${model} at ${url}`);
         const startTime = Date.now();
+        // 如果该 vendor 配置了跳过 TLS 验证（内网自签证书场景），注入 undici Agent
+        const dispatcher = fetchUtil.getDispatcher(vendor.config.skip_tls_verify);
         const response = await fetch(url, {
             method: "POST",
             headers,
             body: upstreamBody,
+            // dispatcher 是 undici (Node.js) 特有选项，不在 Cloudflare Workers 的 RequestInit 类型定义中
+            ...(dispatcher ? { dispatcher: dispatcher } as any : {}),
         });
         const duration = Date.now() - startTime;
         const responseText = await response.text();

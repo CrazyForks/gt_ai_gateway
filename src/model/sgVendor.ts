@@ -1,9 +1,51 @@
 import { Model } from "sutando";
+import { CastsAttributes } from "sutando";
 import { inspect, InspectOptions } from "util";
 import { VendorType, ApiFormat, VendorAuthMode } from "../constants";
 import vendorDefaultUrls from "../service/vendorDefaultUrls";
 import customError from "../util/customError";
 import urlUtil from "../util/urlUtil";
+
+
+/**
+ * 供应商配置对象，同时作为 Sutando 自定义 cast（Sutando 通过 instanceof CastsAttributes 识别）。
+ * vendor.config 的类型即为此类，读写一致。
+ */
+// @ts-expect-error Sutando .d.ts 声明 static get/set() 无参，运行时传 4 个实参
+class SgVendorConfig extends CastsAttributes {
+    /** 认证模式，未配置时默认为 bearer_token */
+    auth_mode: VendorAuthMode = VendorAuthMode.BEARER_TOKEN;
+
+    /** 是否跳过 TLS 证书验证（用于自签证书等内网环境） */
+    skip_tls_verify: boolean = false;
+
+    constructor(data?: Partial<SgVendorConfig>) {
+        super();
+        if (data) {
+            if (data.auth_mode !== undefined) this.auth_mode = data.auth_mode;
+            if (data.skip_tls_verify !== undefined) this.skip_tls_verify = data.skip_tls_verify;
+        }
+    }
+
+    /** API 响应序列化（JSON.stringify 自动调用） */
+    toJSON() {
+        return { auth_mode: this.auth_mode, skip_tls_verify: this.skip_tls_verify };
+    }
+
+    // ---- Sutando custom cast ----
+
+    /** DB string → SgVendorConfig 实例 */
+    static get(self: SgVendor, key: string, value: string): SgVendorConfig {
+        let parsed: Record<string, any> = {};
+        try { parsed = value ? JSON.parse(value) : {}; } catch {}
+        return new SgVendorConfig(parsed);
+    }
+
+    // 创建时收到纯对象，读改保存时收到 SgVendorConfig 实例，两者都需支持
+    static set(self: SgVendor, key: string, value: SgVendorConfig | Record<string, any>): string {
+        return JSON.stringify(value instanceof SgVendorConfig ? value.toJSON() : value);
+    }
+}
 
 class SgVendor extends Model {
     table = "vendor";
@@ -12,34 +54,16 @@ class SgVendor extends Model {
     type!: VendorType;
     name!: string;
     token!: string;
-    urls!: string;  // JSON string
-    config!: string;  // JSON string
+    urls!: Record<string, string>;
+    config!: SgVendorConfig;
+
+    casts = {
+        urls: 'json',
+        config: SgVendorConfig,
+    };
 
     created_at!: Date;
     updated_at!: Date;
-
-    /**
-     * Parse URLs JSON string to object
-     */
-    getUrls(): Record<string, string> {
-        try {
-            return this.urls ? JSON.parse(this.urls) : {};
-        } catch {
-            return {};
-        }
-    }
-
-    /**
-     * Parse config JSON string to object
-     */
-    getConfig(): Record<string, any> {
-        try {
-            return this.config ? JSON.parse(this.config) : {};
-        } catch {
-            return {};
-        }
-    }
-
 
     /**
      * Merge preset URLs and DB-stored custom URLs.
@@ -47,17 +71,11 @@ class SgVendor extends Model {
      */
     getMergedUrls(): Record<string, string> {
         const presetUrls = vendorDefaultUrls.getAllUrls()[this.type] ?? {};
-        const merged = { ...presetUrls, ...this.getUrls() };
+        const merged = { ...presetUrls, ...this.urls };
         delete merged['label'];
         return merged;
     }
 
-    /**
-     * Get URL by API format with default value handling
-     * @param format - API format (openai, anthropic, google, etc.)
-     * @returns URL string for the specified format
-     * @throws Error if URL cannot be found or determined
-     */
     /**
      * 根据 API 格式获取对应的 URL
      * @param format - API 格式（openai, anthropic, responses）
@@ -111,31 +129,9 @@ class SgVendor extends Model {
         return formats;
     }
 
-    /**
-     * 获取当前 vendor 的认证模式，未配置时默认为 bearer_token
-     */
-    getAuthMode(): VendorAuthMode {
-        const config = this.getConfig();
-        if (!config.auth_mode) {
-            return VendorAuthMode.BEARER_TOKEN;
-        }
-        return config.auth_mode === VendorAuthMode.API_KEY
-            ? VendorAuthMode.API_KEY
-            : VendorAuthMode.BEARER_TOKEN;
-    }
-
-
-    /**
-     * 判断是否使用 Bearer Token 认证方式
-     */
-    isBearerTokenAuth(): boolean {
-        return this.getAuthMode() === VendorAuthMode.BEARER_TOKEN;
-    }
-
-
     [inspect.custom](depth: number, options: InspectOptions) {
         return JSON.stringify(this.toData(), null, 2);
     }
 }
 
-export { SgVendor };
+export { SgVendor, SgVendorConfig };

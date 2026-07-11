@@ -4,7 +4,7 @@ import { SgUser } from "../model/sgUser";
 import { SgVendor } from "../model/sgVendor";
 import { SgVendorModel } from "../model/sgVendorModel";
 import recordService from "./recordService";
-import { SgRecordStatus, ApiFormat } from "../constants";
+import { SgRecordStatus, ApiFormat, VendorAuthMode } from "../constants";
 import pluginService from "./pluginService";
 import hostService from "./hostService";
 import { ConverterFactory } from "../util/protocolConverter/ConverterFactory";
@@ -13,6 +13,7 @@ import customError from "../util/customError";
 import protocolUtils from "../util/protocolUtils";
 import streamLogService from "./streamLogService";
 import responseHandlerService from "./responseHandlerService";
+import fetchUtil from "../util/fetchUtil";
 
 async function sendRequest(
     c: Context,
@@ -113,7 +114,7 @@ async function sendRequest(
     }
 
     if (upstreamFormat === ApiFormat.ANTHROPIC) {
-        if (vendor.isBearerTokenAuth()) {
+        if (vendor.config.auth_mode === VendorAuthMode.BEARER_TOKEN) {
             finalHeaders.set("Authorization", vendor.token.startsWith("Bearer ") ? vendor.token : `Bearer ${vendor.token}`);
         } else {
             finalHeaders.set("x-api-key", vendor.token);
@@ -188,7 +189,16 @@ async function sendRequest(
     // 7. 发起上游请求，拿到响应头后立即判断响应类型
     let upstreamRes: Response;
     try {
-        upstreamRes = await fetch(url, { method: "POST", headers: finalHeaders, body: upstreamBody, signal: c.req.raw.signal });
+        // 如果该 vendor 配置了跳过 TLS 验证（内网自签证书场景），注入 undici Agent
+        const dispatcher = fetchUtil.getDispatcher(vendor.config.skip_tls_verify);
+        upstreamRes = await fetch(url, {
+            method: "POST",
+            headers: finalHeaders,
+            body: upstreamBody,
+            signal: c.req.raw.signal,
+            // dispatcher 是 undici (Node.js) 特有选项，不在 Cloudflare Workers 的 RequestInit 类型定义中
+            ...(dispatcher ? { dispatcher: dispatcher } as any : {}),
+        });
     } catch (e: any) {
         console.error("Upstream fetch failed:", e);
         await recordService.update(record.id, {

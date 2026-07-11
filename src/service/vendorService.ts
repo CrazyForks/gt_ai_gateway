@@ -1,5 +1,5 @@
 import { SgVendor } from "../model/sgVendor";
-import { ApiFormat, VendorAuthMode } from "../constants";
+import { ApiFormat } from "../constants";
 
 
 async function getVendorByName(name: string): Promise<SgVendor | null> {
@@ -27,12 +27,11 @@ async function updateVendor(
         token: data.token ?? vendor.token,
     };
 
-    // Handle urls - if provided, serialize as JSON string
+    // query().update() 是裸 SQL 拼接，不走 casts，对象类型字段需手动序列化
     if (data.urls !== undefined) {
         updateData.urls = JSON.stringify(data.urls);
     }
 
-    // Handle config - if provided, serialize as JSON string
     if (data.config !== undefined) {
         updateData.config = JSON.stringify(data.config);
     }

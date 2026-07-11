@@ -13,7 +13,7 @@ function makeVendor(type: string, urls: Record<string, string> = {}): SgVendor {
     const v = new SgVendor();
     v.type = type as VendorType;
     v.token = "test-token";
-    v.urls = JSON.stringify(urls);
+    v.urls = urls;
     return v;
 }
 
@@ -194,35 +194,17 @@ describe("SgVendor.getUrlByFormat — URL merge & resolution", () => {
         });
     });
 
-    describe("getUrls", () => {
-        it("parses stored JSON urls correctly", () => {
+    describe("urls", () => {
+        it("returns stored urls directly (Sutando casts deserialize)", () => {
             const v = makeVendor("other", {
                 openai: "https://a.com",
                 anthropic: "https://b.com",
             });
 
-            expect(v.getUrls()).toEqual({
+            expect(v.urls).toEqual({
                 openai: "https://a.com",
                 anthropic: "https://b.com",
             });
-        });
-
-        it("returns empty object when urls is empty string", () => {
-            const v = new SgVendor();
-            v.type = "other" as VendorType;
-            v.token = "t";
-            v.urls = "";
-
-            expect(v.getUrls()).toEqual({});
-        });
-
-        it("returns empty object when urls is invalid JSON", () => {
-            const v = new SgVendor();
-            v.type = "other" as VendorType;
-            v.token = "t";
-            v.urls = "not-json";
-
-            expect(v.getUrls()).toEqual({});
         });
     });
 
@@ -251,7 +233,7 @@ describe("SgVendor.getUrlByFormat — URL merge & resolution", () => {
             const v = new SgVendor();
             v.type = "openai" as VendorType;
             v.token = "t";
-            v.urls = "not-json";
+            v.urls = {};
 
             expect(v.getMergedUrls().openai).toContain("api.openai.com");
         });

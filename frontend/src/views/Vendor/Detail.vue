@@ -21,6 +21,9 @@
                         {{ vendor.config?.auth_mode === 'bearer_token' ? 'Bearer Token (Authorization)' : 'API Key (x-api-key)' }}
                     </a-tag>
                 </a-descriptions-item>
+                <a-descriptions-item v-if="vendor.config?.skip_tls_verify" label="TLS 验证">
+                    <a-tag color="orange">已跳过</a-tag>
+                </a-descriptions-item>
                 <a-descriptions-item label="URLs">
                     <div v-for="item in getMergedUrls(vendor)" :key="item.key" class="url-item">
                         <strong>{{ item.key }}:</strong> {{ item.url }}

@@ -347,7 +347,7 @@ describe("Vendor API (Positive)", () => {
             );
 
             expect(response.status).toBe(200);
-            expect(response.body.config).toEqual({ auth_mode: "bearer_token" });
+            expect(response.body.config).toEqual({ auth_mode: "bearer_token", skip_tls_verify: false });
         });
 
         it("should default config.auth_mode to bearer_token when not provided", async () => {
@@ -361,7 +361,7 @@ describe("Vendor API (Positive)", () => {
             );
 
             expect(response.status).toBe(200);
-            expect(response.body.config).toEqual({});
+            expect(response.body.config).toEqual({ auth_mode: "bearer_token", skip_tls_verify: false });
         });
 
         it("should update vendor config.auth_mode", async () => {
@@ -384,7 +384,7 @@ describe("Vendor API (Positive)", () => {
             );
 
             expect(updateRes.status).toBe(200);
-            expect(updateRes.body.config).toEqual({ auth_mode: "api_key" });
+            expect(updateRes.body.config).toEqual({ auth_mode: "api_key", skip_tls_verify: false });
         });
 
         it("should preserve other config fields when updating auth_mode", async () => {
@@ -414,8 +414,8 @@ describe("Vendor API (Positive)", () => {
             );
 
             expect(updateRes.status).toBe(200);
-            // 注意：当前实现会覆盖整个 config，所以 custom_field 会丢失
-            expect(updateRes.body.config).toEqual({ auth_mode: "api_key" });
+            // 注意：当前实现会覆盖整个 config，SgVendorConfig 只认已知字段
+            expect(updateRes.body.config).toEqual({ auth_mode: "api_key", skip_tls_verify: false });
         });
     });
 });

@@ -97,6 +97,11 @@
                             <a-select-option value="bearer_token">Bearer Token (Authorization)</a-select-option>
                         </a-select>
                     </div>
+                    <div class="advanced-row">
+                        <label class="advanced-label">跳过 TLS 验证</label>
+                        <a-switch v-model:checked="formState.skip_tls_verify" />
+                        <span style="margin-left: 8px; color: #999; font-size: 12px;">内网自签证书环境需开启</span>
+                    </div>
                 </a-collapse-panel>
             </a-collapse>
         </a-form>
@@ -136,6 +141,7 @@ const formState = reactive({
     name: '',
     token: '',
     auth_mode: 'bearer_token' as VendorAuthMode,
+    skip_tls_verify: false,
 });
 
 const urlsMode = ref<'view' | 'edit'>('view');
@@ -179,6 +185,7 @@ async function open(vendor: Vendor) {
     formState.name = vendor.name;
     formState.token = vendor.token;
     formState.auth_mode = vendor.config?.auth_mode || 'bearer_token';
+    formState.skip_tls_verify = vendor.config?.skip_tls_verify ?? false;
 
     // 加载已保存的自定义 URLs
     urlsForm.splice(0, urlsForm.length);
@@ -218,7 +225,7 @@ async function handleOk() {
             name: formState.name,
             token: formState.token,
             urls,
-            config: { auth_mode: formState.auth_mode },
+            config: { auth_mode: formState.auth_mode, skip_tls_verify: formState.skip_tls_verify },
         };
 
         loading.value = true;

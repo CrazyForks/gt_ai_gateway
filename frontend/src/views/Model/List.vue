@@ -98,8 +98,7 @@
         </a-table>
     </div>
 
-    <DialogCreate ref="createDialogRef" @success="handleCreateSuccess" />
-    <DialogEdit ref="editDialogRef" @success="handleEditSuccess" />
+    <DialogForm ref="dialogFormRef" @success="handleSuccess" />
     <DialogTest ref="testDialogRef" />
 </template>
 
@@ -114,8 +113,7 @@ import { getConfig } from '@/api/config';
 import { useResourceTable } from '@/composables/useResourceTable';
 import { formatDate } from '@/utils/format';
 import { normalizeListResponse } from '@/utils/listResponse';
-import DialogCreate from './DialogCreate.vue';
-import DialogEdit from './DialogEdit.vue';
+import DialogForm from './DialogForm.vue';
 import DialogTest from '@/views/Vendor/DialogTest.vue';
 import type { Model, ModelQuery } from '@/types/model';
 import type { Vendor as VendorType, VendorModel } from '@/types/vendor';
@@ -134,8 +132,7 @@ const { loading, data, pagination, searchForm, loadData, handleSearch, handleRes
     },
 });
 
-const createDialogRef = ref();
-const editDialogRef = ref();
+const dialogFormRef = ref<InstanceType<typeof DialogForm>>();
 const testDialogRef = ref<InstanceType<typeof DialogTest>>();
 
 const vendors = ref<VendorType[]>([]);
@@ -180,18 +177,14 @@ onMounted(() => {
 });
 
 function handleCreate() {
-    createDialogRef.value?.open();
-}
-
-function handleCreateSuccess() {
-    loadData();
+    dialogFormRef.value?.openCreate();
 }
 
 function handleEdit(record: Model) {
-    editDialogRef.value?.open(record);
+    dialogFormRef.value?.openEdit(record);
 }
 
-function handleEditSuccess() {
+function handleSuccess() {
     loadData();
 }
 

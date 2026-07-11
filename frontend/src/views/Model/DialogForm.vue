@@ -1,7 +1,7 @@
 <template>
     <a-modal
         v-model:open="visible"
-        title="新建模型"
+        :title="isEdit ? '编辑模型' : '新建模型'"
         @cancel="handleCancel"
         :confirm-loading="loading"
     >
@@ -59,6 +59,59 @@
             <a-form-item label="状态" name="enable">
                 <a-switch v-model:checked="formState.enable" />
             </a-form-item>
+            <SettingsCollapse v-if="moduleBillingEnabled" v-model:activeKey="billingExpanded" panel-key="billing" header="价格设置">
+                <div class="settings-row">
+                    <label class="settings-label">
+                        输入价格
+                        <a-tooltip title="输入token的计费价格 (元/千tokens)">
+                            <InfoCircleOutlined style="font-size: 12px; color: #999; margin-left: 4px;" />
+                        </a-tooltip>
+                    </label>
+                    <div style="flex: 1">
+                        <a-input-number
+                            v-model:value="formState.prices.input"
+                            placeholder="请输入输入价格"
+                            :min="0"
+                            :precision="6"
+                            style="width: 100%"
+                        />
+                    </div>
+                </div>
+                <div class="settings-row">
+                    <label class="settings-label">
+                        输出价格
+                        <a-tooltip title="输出token的计费价格 (元/千tokens)">
+                            <InfoCircleOutlined style="font-size: 12px; color: #999; margin-left: 4px;" />
+                        </a-tooltip>
+                    </label>
+                    <div style="flex: 1">
+                        <a-input-number
+                            v-model:value="formState.prices.output"
+                            placeholder="请输入输出价格"
+                            :min="0"
+                            :precision="6"
+                            style="width: 100%"
+                        />
+                    </div>
+                </div>
+                <div class="settings-row">
+                    <label class="settings-label">
+                        缓存读取价格
+                        <a-tooltip title="缓存命中时读取token的计费价格 (元/千tokens)">
+                            <InfoCircleOutlined style="font-size: 12px; color: #999; margin-left: 4px;" />
+                        </a-tooltip>
+                    </label>
+                    <div style="flex: 1">
+                        <a-input-number
+                            v-model:value="formState.prices.cache_read"
+                            placeholder="请输入缓存读取价格"
+                            :min="0"
+                            :precision="6"
+                            style="width: 100%"
+                        />
+                    </div>
+                </div>
+            </SettingsCollapse>
         </a-form>
     </a-modal>
 
@@ -68,8 +121,11 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue';
 import type { FormInstance } from 'ant-design-vue/es';
-import { createModel } from '@/api/model';
+import { InfoCircleOutlined } from '@ant-design/icons-vue';
+import { createModel, updateModel } from '@/api/model';
 import { listVendors, listVendorModels } from '@/api/vendor';
+import { getConfig } from '@/api/config';
+import SettingsCollapse from '@/components/common/SettingsCollapse.vue';
 import type { Model } from '@/types/model';
 import type { Vendor as VendorType, VendorModel } from '@/types/vendor';
 import { normalizeListResponse } from '@/utils/listResponse';
@@ -83,13 +139,22 @@ const emit = defineEmits<{
 const visible = ref(false);
 const loading = ref(false);
 const formRef = ref<FormInstance>();
+const billingExpanded = ref<string[]>([]);
 const testDialogRef = ref<InstanceType<typeof DialogTest>>();
+
+const isEdit = ref(false);
+const currentId = ref<number>(0);
 
 const formState = reactive({
     name: '',
     vendor_id: undefined as number | undefined,
     vendor_model_id: undefined as number | undefined,
     enable: true,
+    prices: {
+        input: undefined as number | undefined,
+        output: undefined as number | undefined,
+        cache_read: undefined as number | undefined,
+    },
 });
 
 const rules = {
@@ -99,6 +164,7 @@ const rules = {
 
 const vendors = ref<VendorType[]>([]);
 const vendorsLoading = ref(false);
+const moduleBillingEnabled = ref(false);
 const vendorModels = ref<VendorModel[]>([]);
 const vendorModelsLoading = ref(false);
 
@@ -151,8 +217,37 @@ function handleTest() {
     });
 }
 
-function open() {
+function openCreate() {
+    isEdit.value = false;
+    currentId.value = 0;
+    billingExpanded.value = [];
     void loadVendors();
+    getConfig().then(config => {
+        moduleBillingEnabled.value = config.module_billing_enabled === 'true';
+    });
+    visible.value = true;
+}
+
+function openEdit(model: Model) {
+    isEdit.value = true;
+    currentId.value = model.id;
+    billingExpanded.value = [];
+    formState.name = model.name;
+    formState.vendor_id = model.vendor_id;
+    formState.vendor_model_id = model.vendor_model_id ?? undefined;
+    formState.enable = Boolean(model.enable);
+    formState.prices = {
+        input: model.prices?.input || undefined,
+        output: model.prices?.output || undefined,
+        cache_read: model.prices?.cache_read || undefined,
+    };
+    void loadVendors();
+    if (model.vendor_id) {
+        void loadVendorModels(model.vendor_id);
+    }
+    getConfig().then(config => {
+        moduleBillingEnabled.value = config.module_billing_enabled === 'true';
+    });
     visible.value = true;
 }
 
@@ -160,21 +255,36 @@ async function handleOk() {
     try {
         await formRef.value?.validate();
         loading.value = true;
-        if (formState.vendor_id === undefined) {
-            notifyError('请选择供应商');
-            return;
+
+        if (isEdit.value) {
+            const model = await updateModel(currentId.value, {
+                ...formState,
+                vendor_model_id: formState.vendor_model_id ?? null,
+            });
+            notifySuccess('更新成功');
+            emit('success', model);
+        } else {
+            if (formState.vendor_id === undefined) {
+                notifyError('请选择供应商');
+                return;
+            }
+            const model = await createModel({
+                name: formState.name,
+                vendor_id: formState.vendor_id,
+                enable: formState.enable,
+                vendor_model_id: formState.vendor_model_id ?? null,
+                prices: {
+                    input: formState.prices.input ?? undefined,
+                    output: formState.prices.output ?? undefined,
+                    cache_read: formState.prices.cache_read ?? undefined,
+                },
+            });
+            notifySuccess('创建成功');
+            emit('success', model);
         }
-        const model = await createModel({
-            name: formState.name,
-            vendor_id: formState.vendor_id,
-            enable: formState.enable,
-            vendor_model_id: formState.vendor_model_id ?? null,
-        });
-        notifySuccess('创建成功');
-        emit('success', model);
         handleCancel();
     } catch (error) {
-        notifyRequestError(error, '创建失败');
+        notifyRequestError(isEdit.value ? '更新失败' : '创建失败');
     } finally {
         loading.value = false;
     }
@@ -182,14 +292,21 @@ async function handleOk() {
 
 function handleCancel() {
     visible.value = false;
+    isEdit.value = false;
+    currentId.value = 0;
     formState.name = '';
     formState.vendor_id = undefined;
     formState.vendor_model_id = undefined;
     formState.enable = true;
+    formState.prices = {
+        input: undefined,
+        output: undefined,
+        cache_read: undefined,
+    };
     vendorModels.value = [];
 }
 
-defineExpose({ open });
+defineExpose({ openCreate, openEdit });
 </script>
 
 <style scoped>

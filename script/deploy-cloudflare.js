@@ -112,6 +112,24 @@ function isPermissionError(error) {
         || text.includes("authentication error");
 }
 
+function isR2UnavailableError(error) {
+    const text = getCommandErrorText(error).toLowerCase();
+    return text.includes("code: 10042")
+        || text.includes("enable r2 through the cloudflare dashboard");
+}
+
+function isSkippableR2Error(error) {
+    return isPermissionError(error) || isR2UnavailableError(error);
+}
+
+function getR2SkipReason(error, action, bucketName) {
+    if (isR2UnavailableError(error)) {
+        return `Cloudflare R2 is not enabled for this account while ${action} bucket ${bucketName}.`;
+    }
+
+    return `No permission to access Cloudflare R2 while ${action} bucket ${bucketName}.`;
+}
+
 function markR2BindingSkipped(reason) {
     skipR2Binding = true;
     skipR2BindingReason = reason;
@@ -227,10 +245,8 @@ function setupR2Bucket() {
     try {
         bucketExists = findR2BucketByName(bucketName);
     } catch (err) {
-        if (isPermissionError(err)) {
-            markR2BindingSkipped(
-                `No permission to access Cloudflare R2 while checking bucket ${bucketName}.`,
-            );
+        if (isSkippableR2Error(err)) {
+            markR2BindingSkipped(getR2SkipReason(err, "checking", bucketName));
             return;
         }
         throw err;
@@ -255,10 +271,8 @@ function setupR2Bucket() {
             console.log(output.trim());
         }
     } catch (err) {
-        if (isPermissionError(err)) {
-            markR2BindingSkipped(
-                `No permission to create Cloudflare R2 bucket ${bucketName}.`,
-            );
+        if (isSkippableR2Error(err)) {
+            markR2BindingSkipped(getR2SkipReason(err, "creating", bucketName));
             return;
         }
         throw err;
@@ -456,31 +470,46 @@ function checkEnvironmentVariables() {
     console.log("✅ All required environment variables are present.");
 }
 
-let exitCode = 0;
+function main() {
+    let exitCode = 0;
 
-try {
-    checkEnvironmentVariables();
-    runDeploySetup();
-    syncSubmodules();
-    run("npm", ["ci", "--prefix", "frontend", "--progress=false"]);
-    run("npm", ["run", "frontend:build"]);
-    run("npx", ["wrangler", "deploy", "--minify", ...prepareDeployWranglerArgs()]);
-    setupRootToken();
+    try {
+        checkEnvironmentVariables();
+        runDeploySetup();
+        syncSubmodules();
+        run("npm", ["ci", "--prefix", "frontend", "--progress=false"]);
+        run("npm", ["run", "frontend:build"]);
+        run("npx", ["wrangler", "deploy", "--minify", ...prepareDeployWranglerArgs()]);
+        setupRootToken();
 
-    console.log("\n==========================================");
-    console.log("    ✅ DEPLOYMENT SUCCESSFUL ✅");
-    console.log("==========================================");
-    console.log("ℹ️  Your ROOT_TOKEN is the value you configured in GitHub Secrets.");
-    console.log("⚠️  If you modify the secret, please re-run this pipeline to apply the new value.");
-    console.log("==========================================\n");
+        console.log("\n==========================================");
+        console.log("    ✅ DEPLOYMENT SUCCESSFUL ✅");
+        console.log("==========================================");
+        console.log("ℹ️  Your ROOT_TOKEN is the value you configured in GitHub Secrets.");
+        console.log("⚠️  If you modify the secret, please re-run this pipeline to apply the new value.");
+        console.log("==========================================\n");
 
-} catch (error) {
-    console.error("Cloudflare deploy failed:", error.message);
-    exitCode = 1;
-} finally {
-    cleanupGeneratedWranglerConfig();
+    } catch (error) {
+        console.error("Cloudflare deploy failed:", error.message);
+        exitCode = 1;
+    } finally {
+        cleanupGeneratedWranglerConfig();
+    }
+
+    if (exitCode !== 0) {
+        process.exit(exitCode);
+    }
 }
 
-if (exitCode !== 0) {
-    process.exit(exitCode);
+module.exports = {
+    getCommandErrorText,
+    getR2SkipReason,
+    isPermissionError,
+    isR2UnavailableError,
+    isSkippableR2Error,
+    stripR2BucketBindings,
+};
+
+if (require.main === module) {
+    main();
 }

@@ -24,6 +24,11 @@ export interface SystemStatistics {
     records?: number;
 }
 
+export interface StorageStatus {
+    r2_available?: boolean;
+    r2_unavailable_reason?: string;
+}
+
 export interface StatusResponse {
     status?: string;
     mode?: RunMode;
@@ -34,6 +39,7 @@ export interface StatusResponse {
         billing?: boolean;
         api_playground?: boolean;
     };
+    storage?: StorageStatus;
     timestamp?: string;
 }
 

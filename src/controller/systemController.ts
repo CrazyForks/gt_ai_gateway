@@ -38,6 +38,29 @@ function getApiAddress(c: Context): string {
 }
 
 
+function getStorageStatus(c: Context) {
+    const objectBucket = (c.env as any)?.OBJECT_BUCKET;
+    if (ormService.mode !== RunMode.WORKER) {
+        return {
+            r2_available: false,
+            r2_unavailable_reason: "当前非 Cloudflare 环境，R2 不可用",
+        };
+    }
+
+    if (!objectBucket) {
+        return {
+            r2_available: false,
+            r2_unavailable_reason: "Cloudflare R2 未配置，R2 不可用",
+        };
+    }
+
+    return {
+        r2_available: true,
+        r2_unavailable_reason: "",
+    };
+}
+
+
 function formatUptime(startTime: Date): string {
     const now = new Date();
     const diff = now.getTime() - startTime.getTime();
@@ -98,6 +121,7 @@ async function status(c: Context) {
                 billing: moduleBilling,
                 api_playground: moduleApiPlayground,
             },
+            storage: getStorageStatus(c),
             timestamp: new Date().toISOString(),
         });
     } catch (error) {

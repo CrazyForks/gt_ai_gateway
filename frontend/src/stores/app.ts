@@ -11,6 +11,8 @@ export const useAppStore = defineStore('app', () => {
     const version = ref(FALLBACK_VERSION);
     const mode = ref<RunMode | ''>('');
     const isDeveloperMode = ref(localStorage.getItem('developerMode') === 'true');
+    const r2StorageAvailable = ref(false);
+    const r2StorageUnavailableReason = ref('');
 
     // 功能模块开关
     const moduleBillingEnabled = ref(false);
@@ -37,6 +39,8 @@ export const useAppStore = defineStore('app', () => {
             mode.value = data.mode || '';
             moduleBillingEnabled.value = data.modules?.billing ?? false;
             moduleApiPlaygroundEnabled.value = data.modules?.api_playground ?? false;
+            r2StorageAvailable.value = data.storage?.r2_available ?? false;
+            r2StorageUnavailableReason.value = data.storage?.r2_unavailable_reason || '';
         } catch (error) {
             console.error('Failed to fetch version:', error);
         }
@@ -47,6 +51,8 @@ export const useAppStore = defineStore('app', () => {
         version,
         mode,
         isDeveloperMode,
+        r2StorageAvailable,
+        r2StorageUnavailableReason,
         moduleBillingEnabled,
         moduleApiPlaygroundEnabled,
         toggleSidebar,

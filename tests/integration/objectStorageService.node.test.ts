@@ -1,7 +1,8 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import objectStorageService from "../../src/service/objectStorageService";
 import ormService from "../../src/service/ormService";
-import { RunMode } from "../../src/constants";
+import configService from "../../src/service/configService";
+import { ConfigKey, RunMode } from "../../src/constants";
 import dbHelper from "../helpers/dbHelper";
 import ormTestHelper from "../helpers/ormTestHelper";
 
@@ -183,5 +184,74 @@ describe("objectStorageService", () => {
         await expect(objectStorageService.get("worker/missing-bucket"))
             .rejects
             .toThrow("R2 object bucket is not configured");
+    });
+
+    it("uses database storage in worker mode when configured", async () => {
+        const bucket = createMockR2Bucket();
+        ormService.mode = RunMode.WORKER;
+        objectStorageService.setR2Bucket(bucket);
+        await configService.setValue(ConfigKey.RECORD_PAYLOAD_STORAGE, "database");
+
+        await objectStorageService.putText("configured/database", "database-value");
+
+        expect(bucket.put).not.toHaveBeenCalled();
+        expect(await objectStorageService.getText("configured/database")).toBe("database-value");
+    });
+
+    it("uses R2 storage in node mode when configured and a bucket is available", async () => {
+        const bucket = createMockR2Bucket();
+        ormService.mode = RunMode.NODE;
+        objectStorageService.setR2Bucket(bucket);
+        await configService.setValue(ConfigKey.RECORD_PAYLOAD_STORAGE, "r2");
+
+        await objectStorageService.putText("configured/r2", "r2-value");
+
+        expect(bucket.put).toHaveBeenCalledWith("configured/r2", expect.any(Uint8Array));
+        expect(await objectStorageService.getText("configured/r2")).toBe("r2-value");
+    });
+
+    it("falls back to the other storage location when reading existing data", async () => {
+        const bucket = createMockR2Bucket();
+        ormService.mode = RunMode.NODE;
+        objectStorageService.setR2Bucket(bucket);
+        await configService.setValue(ConfigKey.RECORD_PAYLOAD_STORAGE, "database");
+        await objectStorageService.putText("configured/fallback", "database-value");
+
+        await configService.setValue(ConfigKey.RECORD_PAYLOAD_STORAGE, "r2");
+
+        expect(await objectStorageService.getText("configured/fallback")).toBe("database-value");
+    });
+
+    it("removes stale copies from the other storage location when writing", async () => {
+        const bucket = createMockR2Bucket();
+        ormService.mode = RunMode.NODE;
+        objectStorageService.setR2Bucket(bucket);
+        await configService.setValue(ConfigKey.RECORD_PAYLOAD_STORAGE, "database");
+        await objectStorageService.putText("configured/moved", "database-old");
+
+        await configService.setValue(ConfigKey.RECORD_PAYLOAD_STORAGE, "r2");
+        await objectStorageService.putText("configured/moved", "r2-new");
+
+        await configService.setValue(ConfigKey.RECORD_PAYLOAD_STORAGE, "database");
+
+        expect(await objectStorageService.getText("configured/moved")).toBe("r2-new");
+    });
+
+    it("deletes matching objects from both storage locations", async () => {
+        const bucket = createMockR2Bucket();
+        ormService.mode = RunMode.NODE;
+        objectStorageService.setR2Bucket(bucket);
+
+        await configService.setValue(ConfigKey.RECORD_PAYLOAD_STORAGE, "database");
+        await objectStorageService.putText("record/database-payload", "database-value");
+
+        await configService.setValue(ConfigKey.RECORD_PAYLOAD_STORAGE, "r2");
+        await objectStorageService.putText("record/r2-payload", "r2-value");
+
+        const deleted = await objectStorageService.deleteByPrefix("record/");
+
+        expect(deleted).toBe(2);
+        expect(await objectStorageService.getText("record/database-payload")).toBeNull();
+        expect(await objectStorageService.getText("record/r2-payload")).toBeNull();
     });
 });

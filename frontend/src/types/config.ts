@@ -5,6 +5,7 @@ export interface ConfigMap {
     host_key: string;
     stream_log_enabled: string;
     record_payload_enabled: string;
+    record_payload_storage: string;
     [key: string]: string;
 }
 
@@ -15,5 +16,6 @@ export interface UpdateConfigRequest {
     host_key?: string;
     stream_log_enabled?: string;
     record_payload_enabled?: string;
+    record_payload_storage?: string;
     [key: string]: string | undefined;
 }

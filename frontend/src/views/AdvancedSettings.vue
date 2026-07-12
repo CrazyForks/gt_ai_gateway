@@ -115,6 +115,33 @@
                     </div>
 
                     <div class="settings-section" style="margin-top: 24px;">
+                        <h3 class="section-title">数据存储</h3>
+                        <div class="settings-list">
+                            <div class="setting-item">
+                                <div class="setting-info">
+                                    <div class="setting-title">数据存储位置</div>
+                                    <div class="setting-desc">
+                                        <span>存储记录的请求/响应内容的位置</span>
+                                        <span v-if="r2StorageUnavailableReason" class="storage-unavailable-reason">
+                                            {{ r2StorageUnavailableReason }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="setting-action">
+                                    <a-select
+                                        v-model:value="form.record_payload_storage"
+                                        class="storage-select"
+                                        :disabled="saving"
+                                    >
+                                        <a-select-option value="database">数据库</a-select-option>
+                                        <a-select-option value="r2" :disabled="!isR2StorageAvailable">R2</a-select-option>
+                                    </a-select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section" style="margin-top: 24px;">
                         <h3 class="section-title">数据清理</h3>
                         <div class="settings-list">
                             <div class="setting-item">
@@ -230,6 +257,10 @@ import { RunMode } from '@/types/system';
 const appStore = useAppStore();
 const currentVersion = computed(() => appStore.version);
 const isWorkerMode = computed(() => appStore.mode === RunMode.WORKER);
+const isR2StorageAvailable = computed(() => appStore.r2StorageAvailable);
+const r2StorageUnavailableReason = computed(() => (
+    !isR2StorageAvailable.value ? appStore.r2StorageUnavailableReason : ''
+));
 const checkingUpdate = ref(false);
 const checkedUpdate = ref(false);
 const hasUpdate = ref(false);
@@ -243,6 +274,7 @@ const activeTab = ref('modules');
 const deleteModalVisible = ref(false);
 const deleteMode = ref<'payload' | 'all'>('payload');
 const deleting = ref(false);
+type RecordPayloadStorage = 'database' | 'r2';
 
 const originalConfig = reactive({
     cch_rewrite_enabled: false,
@@ -250,6 +282,7 @@ const originalConfig = reactive({
     claude_code_tracking_rewrite_enabled: true,
     stream_log_enabled: false,
     record_payload_enabled: true,
+    record_payload_storage: 'database' as RecordPayloadStorage,
     auto_update_enabled: true,
     telemetry_disabled: false,
     module_billing_enabled: false,
@@ -262,6 +295,7 @@ const form = reactive({
     claude_code_tracking_rewrite_enabled: true,
     stream_log_enabled: false,
     record_payload_enabled: true,
+    record_payload_storage: 'database' as RecordPayloadStorage,
     auto_update_enabled: true,
     telemetry_disabled: false,
     module_billing_enabled: false,
@@ -274,6 +308,7 @@ const isDirty = computed(() => {
            form.claude_code_tracking_rewrite_enabled !== originalConfig.claude_code_tracking_rewrite_enabled ||
            form.stream_log_enabled !== originalConfig.stream_log_enabled ||
            form.record_payload_enabled !== originalConfig.record_payload_enabled ||
+           form.record_payload_storage !== originalConfig.record_payload_storage ||
            form.auto_update_enabled !== originalConfig.auto_update_enabled ||
            form.telemetry_disabled !== originalConfig.telemetry_disabled ||
            form.module_billing_enabled !== originalConfig.module_billing_enabled ||
@@ -284,10 +319,24 @@ onMounted(() => {
     void loadConfig();
 });
 
+function normalizeRecordPayloadStorage(value: string | undefined): RecordPayloadStorage {
+    if (value === 'database') {
+        return value;
+    }
+
+    if (value === 'r2' && isR2StorageAvailable.value) {
+        return value;
+    }
+
+    return isR2StorageAvailable.value ? 'r2' : 'database';
+}
+
 async function loadConfig(): Promise<void> {
     loading.value = true;
     try {
         const config = await getConfig();
+        await appStore.fetchStatus();
+
         form.cch_rewrite_enabled = config.cch_rewrite_enabled !== "false";
         originalConfig.cch_rewrite_enabled = config.cch_rewrite_enabled !== "false";
 
@@ -303,6 +352,9 @@ async function loadConfig(): Promise<void> {
         form.record_payload_enabled = config.record_payload_enabled !== "false";
         originalConfig.record_payload_enabled = config.record_payload_enabled !== "false";
 
+        form.record_payload_storage = normalizeRecordPayloadStorage(config.record_payload_storage);
+        originalConfig.record_payload_storage = form.record_payload_storage;
+
         form.auto_update_enabled = config.auto_update_enabled !== "false";
         originalConfig.auto_update_enabled = config.auto_update_enabled !== "false";
 
@@ -314,7 +366,6 @@ async function loadConfig(): Promise<void> {
 
         form.module_api_playground_enabled = config.module_api_playground_enabled === "true";
         originalConfig.module_api_playground_enabled = config.module_api_playground_enabled === "true";
-        await appStore.fetchStatus();
     } finally {
         loading.value = false;
     }
@@ -326,6 +377,7 @@ function cancelChanges() {
     form.claude_code_tracking_rewrite_enabled = originalConfig.claude_code_tracking_rewrite_enabled;
     form.stream_log_enabled = originalConfig.stream_log_enabled;
     form.record_payload_enabled = originalConfig.record_payload_enabled;
+    form.record_payload_storage = originalConfig.record_payload_storage;
     form.auto_update_enabled = originalConfig.auto_update_enabled;
     form.telemetry_disabled = originalConfig.telemetry_disabled;
     form.module_billing_enabled = originalConfig.module_billing_enabled;
@@ -396,6 +448,7 @@ async function saveConfig() {
             claude_code_tracking_rewrite_enabled: form.claude_code_tracking_rewrite_enabled ? "true" : "false",
             stream_log_enabled: form.stream_log_enabled ? "true" : "false",
             record_payload_enabled: form.record_payload_enabled ? "true" : "false",
+            record_payload_storage: form.record_payload_storage,
             auto_update_enabled: form.auto_update_enabled ? "true" : "false",
             telemetry_disabled: form.telemetry_disabled ? "true" : "false",
             module_billing_enabled: form.module_billing_enabled ? "true" : "false",
@@ -407,6 +460,7 @@ async function saveConfig() {
         originalConfig.claude_code_tracking_rewrite_enabled = form.claude_code_tracking_rewrite_enabled;
         originalConfig.stream_log_enabled = form.stream_log_enabled;
         originalConfig.record_payload_enabled = form.record_payload_enabled;
+        originalConfig.record_payload_storage = form.record_payload_storage;
         originalConfig.auto_update_enabled = form.auto_update_enabled;
         originalConfig.telemetry_disabled = form.telemetry_disabled;
         originalConfig.module_billing_enabled = form.module_billing_enabled;
@@ -488,10 +542,27 @@ async function saveConfig() {
     line-height: 1.5;
 }
 
+.storage-unavailable-reason {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    padding: 1px 8px;
+    border-radius: 4px;
+    background: var(--bg-secondary, #f5f5f5);
+    color: var(--text-secondary, #8c8c8c);
+    font-size: 12px;
+    line-height: 20px;
+    white-space: nowrap;
+}
+
 .page-actions {
     margin-top: 24px;
     display: flex;
     justify-content: flex-end;
+}
+
+.storage-select {
+    width: 120px;
 }
 
 :deep(.ant-tabs-tab) {

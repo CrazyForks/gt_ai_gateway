@@ -1,5 +1,7 @@
 import ormService from "./ormService";
+import configService from "./configService";
 import { SgStorageRecord } from "../model/sgStorageRecord";
+import { ConfigKey, RecordPayloadStorage } from "../constants";
 import customError from "../util/customError";
 
 interface StoredObject {
@@ -55,6 +57,40 @@ function getWorkerBucket(): R2Bucket {
     return r2Bucket;
 }
 
+function isValidStorageLocation(value: string): value is RecordPayloadStorage.DATABASE | RecordPayloadStorage.R2 {
+    return value === RecordPayloadStorage.DATABASE || value === RecordPayloadStorage.R2;
+}
+
+async function resolveStorageLocation(): Promise<RecordPayloadStorage.DATABASE | RecordPayloadStorage.R2> {
+    const configured = (await configService.getConfig(ConfigKey.RECORD_PAYLOAD_STORAGE)).getString().trim();
+    if (isValidStorageLocation(configured)) {
+        return configured;
+    }
+
+    return ormService.isWorker ? RecordPayloadStorage.R2 : RecordPayloadStorage.DATABASE;
+}
+
+function alternateStorageLocation(
+    location: RecordPayloadStorage.DATABASE | RecordPayloadStorage.R2,
+): RecordPayloadStorage.DATABASE | RecordPayloadStorage.R2 {
+    return location === RecordPayloadStorage.R2
+        ? RecordPayloadStorage.DATABASE
+        : RecordPayloadStorage.R2;
+}
+
+function isLocationAvailable(location: RecordPayloadStorage.DATABASE | RecordPayloadStorage.R2): boolean {
+    if (location === RecordPayloadStorage.R2) {
+        return r2Bucket !== null;
+    }
+    return true;
+}
+
+function assertLocationAvailable(location: RecordPayloadStorage.DATABASE | RecordPayloadStorage.R2) {
+    if (location === RecordPayloadStorage.R2) {
+        getWorkerBucket();
+    }
+}
+
 function toDatabaseBytes(data: Uint8Array): Uint8Array {
     if (typeof Buffer !== "undefined") {
         return Buffer.from(data);
@@ -101,10 +137,18 @@ async function deleteFromTable(key: string) {
     await SgStorageRecord.query().where("object_key", key).delete();
 }
 
-async function put(key: string, data: Uint8Array) {
-    assertValidKey(key);
+async function deleteFromTableByPrefix(prefix: string): Promise<number> {
+    const pattern = `${prefix}%`;
+    const deleted = await SgStorageRecord.query().where("object_key", "like", pattern).delete();
+    return Number(deleted || 0);
+}
 
-    if (ormService.isWorker) {
+async function putToLocation(
+    location: RecordPayloadStorage.DATABASE | RecordPayloadStorage.R2,
+    key: string,
+    data: Uint8Array,
+) {
+    if (location === RecordPayloadStorage.R2) {
         await getWorkerBucket().put(key, data);
         return;
     }
@@ -112,10 +156,11 @@ async function put(key: string, data: Uint8Array) {
     await putToTable(key, data);
 }
 
-async function get(key: string): Promise<Uint8Array | null> {
-    assertValidKey(key);
-
-    if (ormService.isWorker) {
+async function getFromLocation(
+    location: RecordPayloadStorage.DATABASE | RecordPayloadStorage.R2,
+    key: string,
+): Promise<Uint8Array | null> {
+    if (location === RecordPayloadStorage.R2) {
         const object = await getWorkerBucket().get(key);
         if (!object) {
             return null;
@@ -127,10 +172,11 @@ async function get(key: string): Promise<Uint8Array | null> {
     return object?.data ?? null;
 }
 
-async function deleteObject(key: string) {
-    assertValidKey(key);
-
-    if (ormService.isWorker) {
+async function deleteFromLocation(
+    location: RecordPayloadStorage.DATABASE | RecordPayloadStorage.R2,
+    key: string,
+) {
+    if (location === RecordPayloadStorage.R2) {
         await getWorkerBucket().delete(key);
         return;
     }
@@ -138,11 +184,11 @@ async function deleteObject(key: string) {
     await deleteFromTable(key);
 }
 
-
-async function deleteByPrefix(prefix: string): Promise<number> {
-    assertValidPrefix(prefix);
-
-    if (ormService.isWorker) {
+async function deleteByPrefixFromLocation(
+    location: RecordPayloadStorage.DATABASE | RecordPayloadStorage.R2,
+    prefix: string,
+): Promise<number> {
+    if (location === RecordPayloadStorage.R2) {
         const bucket = getWorkerBucket();
         let cursor: string | undefined;
         const deleteBatches: string[][] = [];
@@ -165,9 +211,70 @@ async function deleteByPrefix(prefix: string): Promise<number> {
         return deleted;
     }
 
-    const pattern = `${prefix}%`;
-    const deleted = await SgStorageRecord.query().where("object_key", "like", pattern).delete();
-    return Number(deleted || 0);
+    return deleteFromTableByPrefix(prefix);
+}
+
+async function put(key: string, data: Uint8Array) {
+    assertValidKey(key);
+
+    const location = await resolveStorageLocation();
+    assertLocationAvailable(location);
+    await putToLocation(location, key, data);
+
+    const fallback = alternateStorageLocation(location);
+    if (isLocationAvailable(fallback)) {
+        await deleteFromLocation(fallback, key);
+    }
+}
+
+async function get(key: string): Promise<Uint8Array | null> {
+    assertValidKey(key);
+
+    const location = await resolveStorageLocation();
+    assertLocationAvailable(location);
+
+    const primary = await getFromLocation(location, key);
+    if (primary) {
+        return primary;
+    }
+
+    const fallback = alternateStorageLocation(location);
+    if (!isLocationAvailable(fallback)) {
+        return null;
+    }
+
+    return getFromLocation(fallback, key);
+}
+
+async function deleteObject(key: string) {
+    assertValidKey(key);
+
+    const location = await resolveStorageLocation();
+    assertLocationAvailable(location);
+
+    await deleteFromLocation(location, key);
+
+    const fallback = alternateStorageLocation(location);
+    if (isLocationAvailable(fallback)) {
+        await deleteFromLocation(fallback, key);
+    }
+}
+
+
+async function deleteByPrefix(prefix: string): Promise<number> {
+    assertValidPrefix(prefix);
+
+    const location = await resolveStorageLocation();
+    assertLocationAvailable(location);
+
+    let deleted = await deleteByPrefixFromLocation(location, prefix);
+
+    const fallback = alternateStorageLocation(location);
+    if (isLocationAvailable(fallback)) {
+        deleted += await deleteByPrefixFromLocation(fallback, prefix);
+    }
+
+    return deleted;
 }
 
 

@@ -65,23 +65,20 @@ function normalizeBytes(data: unknown): Uint8Array {
         return new Uint8Array(typedData.buffer, typedData.byteOffset, typedData.byteLength);
     }
 
-    // 7. 数字（单字节）
+    // 7. 普通 Array（D1 可能返回字节数组）
+    if (Array.isArray(data)) {
+        return new Uint8Array(data);
+    }
+
+    // 8. 数字（单字节）
     if (typeof data === "number") {
         return new Uint8Array([data]);
     }
 
-    // 8. null 或 undefined
+    // 9. null 或 undefined
     if (data === null || data === undefined) {
         return new Uint8Array(0);
     }
-
-    // 9. 未知对象类型 - 记录详细信息用于调试
-    console.error("[normalizeBytes] Unknown object type:", {
-        type: typeof data,
-        constructor: (data as any)?.constructor?.name,
-        keys: data !== null && typeof data === "object" ? Object.keys(data) : [],
-        json: JSON.stringify(data)?.substring(0, 200),
-    });
 
     throw new customError.AppError(`unsupported object data type: ${typeof data}`, 500);
 }

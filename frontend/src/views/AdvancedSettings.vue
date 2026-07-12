@@ -89,7 +89,7 @@
                         <div class="setting-item">
                             <div class="setting-info">
                                 <div class="setting-title">记录请求/响应内容</div>
-                                <div class="setting-desc">启用后，每次请求的 request/response 原始内容会写入对象存储（Node 模式存数据库表，Worker 模式存 R2），可在请求记录详情中查看。关闭可节省存储空间，但新记录的详情将不再包含请求/响应内容（已保存的历史记录不受影响）。</div>
+                                <div class="setting-desc">启用后，每次请求的请求内容和响应内容会被存储，并可在请求记录详情中查看。关闭可节省存储空间，但新记录的详情将不再包含请求/响应内容（已保存的历史记录不受影响）。</div>
                             </div>
                             <div class="setting-action">
                                 <a-switch
@@ -120,21 +120,39 @@
                             <div class="setting-item">
                                 <div class="setting-info">
                                     <div class="setting-title">数据存储位置</div>
-                                    <div class="setting-desc">
-                                        <span>存储记录的请求/响应内容的位置</span>
-                                        <span v-if="r2StorageUnavailableReason" class="storage-unavailable-reason">
-                                            {{ r2StorageUnavailableReason }}
-                                        </span>
-                                    </div>
+                                    <div class="setting-desc">存储记录的请求/响应内容的位置</div>
                                 </div>
                                 <div class="setting-action">
                                     <a-select
                                         v-model:value="form.record_payload_storage"
                                         class="storage-select"
+                                        option-label-prop="label"
+                                        :dropdown-match-select-width="320"
                                         :disabled="saving"
                                     >
-                                        <a-select-option value="database">数据库</a-select-option>
-                                        <a-select-option value="r2" :disabled="!isR2StorageAvailable">R2</a-select-option>
+                                        <a-select-option value="auto" label="自动">
+                                            <div class="storage-option">
+                                                <div class="storage-option-title">自动</div>
+                                                <div class="storage-option-desc">非 Cloudflare 环境优先数据库，Cloudflare 环境优先 R2</div>
+                                            </div>
+                                        </a-select-option>
+                                        <a-select-option value="database" label="数据库">
+                                            <div class="storage-option">
+                                                <div class="storage-option-title">数据库</div>
+                                                <div class="storage-option-desc">将请求和响应内容存储到数据库</div>
+                                            </div>
+                                        </a-select-option>
+                                        <a-select-option value="r2" label="R2" :disabled="!isR2StorageAvailable">
+                                            <div class="storage-option">
+                                                <div class="storage-option-title">R2</div>
+                                                <div class="storage-option-desc">
+                                                    <span>将请求和响应内容存储到 Cloudflare R2</span>
+                                                    <span v-if="r2StorageUnavailableReason" class="storage-option-reason">
+                                                        {{ r2StorageUnavailableReason }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </a-select-option>
                                     </a-select>
                                 </div>
                             </div>
@@ -274,7 +292,7 @@ const activeTab = ref('modules');
 const deleteModalVisible = ref(false);
 const deleteMode = ref<'payload' | 'all'>('payload');
 const deleting = ref(false);
-type RecordPayloadStorage = 'database' | 'r2';
+type RecordPayloadStorage = 'auto' | 'database' | 'r2';
 
 const originalConfig = reactive({
     cch_rewrite_enabled: false,
@@ -282,7 +300,7 @@ const originalConfig = reactive({
     claude_code_tracking_rewrite_enabled: true,
     stream_log_enabled: false,
     record_payload_enabled: true,
-    record_payload_storage: 'database' as RecordPayloadStorage,
+    record_payload_storage: 'auto' as RecordPayloadStorage,
     auto_update_enabled: true,
     telemetry_disabled: false,
     module_billing_enabled: false,
@@ -295,7 +313,7 @@ const form = reactive({
     claude_code_tracking_rewrite_enabled: true,
     stream_log_enabled: false,
     record_payload_enabled: true,
-    record_payload_storage: 'database' as RecordPayloadStorage,
+    record_payload_storage: 'auto' as RecordPayloadStorage,
     auto_update_enabled: true,
     telemetry_disabled: false,
     module_billing_enabled: false,
@@ -320,15 +338,11 @@ onMounted(() => {
 });
 
 function normalizeRecordPayloadStorage(value: string | undefined): RecordPayloadStorage {
-    if (value === 'database') {
+    if (value === 'auto' || value === 'database' || value === 'r2') {
         return value;
     }
 
-    if (value === 'r2' && isR2StorageAvailable.value) {
-        return value;
-    }
-
-    return isR2StorageAvailable.value ? 'r2' : 'database';
+    return 'auto';
 }
 
 async function loadConfig(): Promise<void> {
@@ -542,19 +556,6 @@ async function saveConfig() {
     line-height: 1.5;
 }
 
-.storage-unavailable-reason {
-    display: inline-flex;
-    align-items: center;
-    margin-left: 8px;
-    padding: 1px 8px;
-    border-radius: 4px;
-    background: var(--bg-secondary, #f5f5f5);
-    color: var(--text-secondary, #8c8c8c);
-    font-size: 12px;
-    line-height: 20px;
-    white-space: nowrap;
-}
-
 .page-actions {
     margin-top: 24px;
     display: flex;
@@ -563,6 +564,36 @@ async function saveConfig() {
 
 .storage-select {
     width: 120px;
+}
+
+:deep(.ant-select-item-option-content) {
+    white-space: normal;
+}
+
+.storage-option {
+    width: 280px;
+    padding: 2px 0;
+}
+
+.storage-option-title {
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
+}
+
+.storage-option-desc {
+    color: var(--text-secondary, #8c8c8c);
+    font-size: 12px;
+    line-height: 18px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.storage-option-reason {
+    display: block;
+    margin-top: 2px;
+    color: var(--error-color, #ff4d4f);
 }
 
 :deep(.ant-tabs-tab) {

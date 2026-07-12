@@ -1,6 +1,7 @@
 const { execFileSync, spawnSync } = require("child_process");
 const crypto = require("crypto");
 const fs = require("fs");
+const path = require("path");
 
 const WRANGLER_CONFIG_PATH = "wrangler.toml";
 const DEFAULT_DATABASE_NAME = "gt_ai_gateway";
@@ -16,6 +17,9 @@ const options = {
     autoCreateR2: false,
 };
 const wranglerArgs = [];
+let skipR2Binding = false;
+let skipR2BindingReason = "";
+let generatedWranglerConfigPath = "";
 
 function printHelp() {
     console.log("Usage:");
@@ -74,12 +78,11 @@ function run(command, commandArgs, options = {}) {
     });
 
     if (result.error) {
-        console.error(result.error.message);
-        process.exit(1);
+        throw result.error;
     }
 
     if (result.status !== 0) {
-        process.exit(result.status || 1);
+        throw new Error(`${command} ${commandArgs.join(" ")} failed with exit code ${result.status || 1}`);
     }
 
     return result.stdout ? String(result.stdout) : "";
@@ -90,6 +93,30 @@ function runAndCapture(command, commandArgs) {
         encoding: "utf8",
         stdio: "pipe",
     });
+}
+
+function getCommandErrorText(error) {
+    return [
+        error?.message,
+        error?.stdout,
+        error?.stderr,
+    ].filter(Boolean).map(String).join("\n");
+}
+
+function isPermissionError(error) {
+    const text = getCommandErrorText(error).toLowerCase();
+    return text.includes("permission")
+        || text.includes("unauthorized")
+        || text.includes("not authorized")
+        || text.includes("forbidden")
+        || text.includes("authentication error");
+}
+
+function markR2BindingSkipped(reason) {
+    skipR2Binding = true;
+    skipR2BindingReason = reason;
+    console.warn(`⚠️  ${reason}`);
+    console.warn("⚠️  R2 binding will be skipped for this deployment. Request/response payloads can fall back to database storage.");
 }
 
 function hasDeploySetupFlags() {
@@ -181,6 +208,13 @@ function findR2BucketByName(bucketName) {
     return list.includes(bucketName);
 }
 
+function stripR2BucketBindings(tomlContent) {
+    return tomlContent
+        .replace(/(^|\n)\[\[r2_buckets\]\][\s\S]*?(?=\n\[|$)/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trimEnd() + "\n";
+}
+
 function setupR2Bucket() {
     const binding = getConfiguredR2Binding();
     if (!binding) {
@@ -189,22 +223,46 @@ function setupR2Bucket() {
     }
 
     const bucketName = getConfiguredR2BucketName();
-    if (findR2BucketByName(bucketName)) {
+    let bucketExists = false;
+    try {
+        bucketExists = findR2BucketByName(bucketName);
+    } catch (err) {
+        if (isPermissionError(err)) {
+            markR2BindingSkipped(
+                `No permission to access Cloudflare R2 while checking bucket ${bucketName}.`,
+            );
+            return;
+        }
+        throw err;
+    }
 
+    if (bucketExists) {
         console.log(`R2 bucket ${bucketName} already exists.`);
         return;
     }
 
     if (!options.autoCreateR2) {
-        throw new Error(
-            `R2 bucket ${bucketName} was not found. ` +
-            "Pass --auto-create-r2 to create it automatically, or create it manually with: " +
-            `npx wrangler r2 bucket create ${bucketName}`,
+        markR2BindingSkipped(
+            `R2 bucket ${bucketName} was not found and --auto-create-r2 was not provided.`,
         );
+        return;
     }
 
     console.log(`Creating R2 bucket ${bucketName}...`);
-    run("npx", ["wrangler", "r2", "bucket", "create", bucketName]);
+    try {
+        const output = runAndCapture("npx", ["wrangler", "r2", "bucket", "create", bucketName]);
+        if (output.trim()) {
+            console.log(output.trim());
+        }
+    } catch (err) {
+        if (isPermissionError(err)) {
+            markR2BindingSkipped(
+                `No permission to create Cloudflare R2 bucket ${bucketName}.`,
+            );
+            return;
+        }
+        throw err;
+    }
 }
 
 function getConfiguredKVBinding() {
@@ -309,15 +367,62 @@ function setupRootToken() {
 }
 
 function runDeploySetup() {
-    if (!hasDeploySetupFlags()) {
+    if (hasDeploySetupFlags()) {
+        console.log("Running Cloudflare deploy setup...");
+        setupDatabase();
+        setupKVNamespace();
+        setupRootToken();
+    }
+
+    setupR2Bucket();
+}
+
+function removeWranglerConfigArgs(args) {
+    const result = [];
+    for (let i = 0; i < args.length; i += 1) {
+        const arg = args[i];
+        if (arg === "--config" || arg === "-c") {
+            i += 1;
+            continue;
+        }
+        if (arg.startsWith("--config=")) {
+            continue;
+        }
+        result.push(arg);
+    }
+    return result;
+}
+
+function prepareDeployWranglerArgs() {
+    if (!skipR2Binding) {
+        return wranglerArgs;
+    }
+
+    const args = removeWranglerConfigArgs(wranglerArgs);
+    generatedWranglerConfigPath = path.resolve(
+        path.dirname(WRANGLER_CONFIG_PATH),
+        `.wrangler.no-r2.${process.pid}.toml`,
+    );
+    fs.writeFileSync(
+        generatedWranglerConfigPath,
+        stripR2BucketBindings(readWranglerConfig()),
+        "utf8",
+    );
+
+    console.log(`Using temporary wrangler config without R2 binding: ${generatedWranglerConfigPath}`);
+    if (skipR2BindingReason) {
+        console.log(`R2 skip reason: ${skipR2BindingReason}`);
+    }
+
+    return ["--config", generatedWranglerConfigPath, ...args];
+}
+
+function cleanupGeneratedWranglerConfig() {
+    if (!generatedWranglerConfigPath) {
         return;
     }
 
-    console.log("Running Cloudflare deploy setup...");
-    setupDatabase();
-    setupR2Bucket();
-    setupKVNamespace();
-    setupRootToken();
+    fs.rmSync(generatedWranglerConfigPath, { force: true });
 }
 
 function syncSubmodules() {
@@ -357,7 +462,7 @@ function checkEnvironmentVariables() {
     console.log("✅ All required environment variables are present.");
 }
 
-
+let exitCode = 0;
 
 try {
     checkEnvironmentVariables();
@@ -365,7 +470,7 @@ try {
     syncSubmodules();
     run("npm", ["ci", "--prefix", "frontend", "--progress=false"]);
     run("npm", ["run", "frontend:build"]);
-    run("npx", ["wrangler", "deploy", "--minify", ...wranglerArgs]);
+    run("npx", ["wrangler", "deploy", "--minify", ...prepareDeployWranglerArgs()]);
 
     console.log("\n==========================================");
     console.log("    ✅ DEPLOYMENT SUCCESSFUL ✅");
@@ -376,5 +481,11 @@ try {
 
 } catch (error) {
     console.error("Cloudflare deploy failed:", error.message);
-    process.exit(1);
+    exitCode = 1;
+} finally {
+    cleanupGeneratedWranglerConfig();
+}
+
+if (exitCode !== 0) {
+    process.exit(exitCode);
 }

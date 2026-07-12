@@ -67,7 +67,11 @@ async function resolveStorageLocation(): Promise<RecordPayloadStorage.DATABASE |
         return configured;
     }
 
-    return ormService.isWorker ? RecordPayloadStorage.R2 : RecordPayloadStorage.DATABASE;
+    if (ormService.isWorker && r2Bucket) {
+        return RecordPayloadStorage.R2;
+    }
+
+    return RecordPayloadStorage.DATABASE;
 }
 
 function alternateStorageLocation(

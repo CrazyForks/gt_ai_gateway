@@ -177,13 +177,36 @@ describe("objectStorageService", () => {
         expect(Array.from((await objectStorageService.get("other/clear-c"))!)).toEqual([3]);
     });
 
-    it("requires an R2 bucket in worker mode", async () => {
+    it("requires an R2 bucket when R2 storage is explicitly configured", async () => {
         ormService.mode = RunMode.WORKER;
         objectStorageService.setR2Bucket(null);
+        await configService.setValue(ConfigKey.RECORD_PAYLOAD_STORAGE, "r2");
 
         await expect(objectStorageService.get("worker/missing-bucket"))
             .rejects
             .toThrow("R2 object bucket is not configured");
+    });
+
+    it("uses database storage in auto mode when worker mode has no R2 bucket", async () => {
+        ormService.mode = RunMode.WORKER;
+        objectStorageService.setR2Bucket(null);
+        await configService.setValue(ConfigKey.RECORD_PAYLOAD_STORAGE, "auto");
+
+        await objectStorageService.putText("auto/worker-without-r2", "database-value");
+
+        expect(await objectStorageService.getText("auto/worker-without-r2")).toBe("database-value");
+    });
+
+    it("uses database storage in auto mode outside worker even when a bucket is available", async () => {
+        const bucket = createMockR2Bucket();
+        ormService.mode = RunMode.NODE;
+        objectStorageService.setR2Bucket(bucket);
+        await configService.setValue(ConfigKey.RECORD_PAYLOAD_STORAGE, "auto");
+
+        await objectStorageService.putText("auto/node", "database-value");
+
+        expect(bucket.put).not.toHaveBeenCalled();
+        expect(await objectStorageService.getText("auto/node")).toBe("database-value");
     });
 
     it("uses database storage in worker mode when configured", async () => {

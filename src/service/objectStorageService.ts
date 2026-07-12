@@ -31,23 +31,51 @@ function assertValidPrefix(prefix: string) {
 }
 
 function normalizeBytes(data: unknown): Uint8Array {
+    // 1. 标准 Uint8Array
     if (data instanceof Uint8Array) {
         return new Uint8Array(data);
     }
 
+    // 2. ArrayBuffer
     if (data instanceof ArrayBuffer) {
         return new Uint8Array(data);
     }
 
+    // 3. 其他 TypedArray 或 DataView
     if (ArrayBuffer.isView(data)) {
         return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
     }
 
+    // 4. 字符串（可能是 base64 编码）
     if (typeof data === "string") {
         return new TextEncoder().encode(data);
     }
 
-    throw new customError.AppError("unsupported object data type", 500);
+    // 5. D1 可能返回的 Buffer 序列化对象: { type: "Buffer", data: [byte1, byte2, ...] }
+    if (data !== null && typeof data === "object" && "type" in data && "data" in data) {
+        const obj = data as { type: string; data: number[] | Uint8Array };
+        if (obj.type === "Buffer" && Array.isArray(obj.data)) {
+            return new Uint8Array(obj.data);
+        }
+    }
+
+    // 6. 鸭子类型：具有 buffer/byteOffset/byteLength 属性的对象
+    if (data !== null && typeof data === "object" && "buffer" in data && "byteLength" in data) {
+        const typedData = data as { buffer: ArrayBuffer; byteOffset: number; byteLength: number };
+        return new Uint8Array(typedData.buffer, typedData.byteOffset, typedData.byteLength);
+    }
+
+    // 7. 数字（单字节）
+    if (typeof data === "number") {
+        return new Uint8Array([data]);
+    }
+
+    // 8. null 或 undefined
+    if (data === null || data === undefined) {
+        return new Uint8Array(0);
+    }
+
+    throw new customError.AppError(`unsupported object data type: ${typeof data}`, 500);
 }
 
 function getWorkerBucket(): R2Bucket {

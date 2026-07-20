@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import anthropicAccumulator from "../../../../src/util/accumulator/anthropicAccumulator";
@@ -75,6 +75,10 @@ describe("AnthropicAccumulator fixtures", () => {
 });
 
 describe("AnthropicAccumulator stream state", () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
     it("marks completed on message_stop", () => {
         const acc = new anthropicAccumulator.AnthropicAccumulator();
         acc.addEvent({ data: JSON.stringify({ type: "content_block_delta", delta: { type: "text_delta", text: "hi" } }), event: "content_block_delta" });
@@ -82,6 +86,40 @@ describe("AnthropicAccumulator stream state", () => {
 
         expect(acc.isCompleted()).toBe(true);
         expect(acc.isOutputStarted()).toBe(true);
+    });
+
+    it("does not parse the trailing [DONE] marker as JSON after message_stop (issue #14)", () => {
+        const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
+        const acc = new anthropicAccumulator.AnthropicAccumulator();
+
+        // OpenRouter's direct Anthropic stream ends with these two SSE events.
+        acc.addEvent({ data: JSON.stringify({ type: "message_stop" }), event: "message_stop" });
+        acc.addEvent({ data: "[DONE]", event: "data" });
+
+        expect(acc.isCompleted()).toBe(true);
+        expect(consoleLog).not.toHaveBeenCalledWith(
+            "Failed to parse SSE data:",
+            "[DONE]",
+            expect.any(SyntaxError),
+        );
+    });
+
+    it("marks completed when an Anthropic-compatible upstream only sends [DONE]", () => {
+        const acc = new anthropicAccumulator.AnthropicAccumulator();
+
+        acc.addEvent({ data: "[DONE]", event: "data" });
+
+        expect(acc.isCompleted()).toBe(true);
+    });
+
+    it("does not mark completed when [DONE] follows an upstream error", () => {
+        const acc = new anthropicAccumulator.AnthropicAccumulator();
+        acc.addEvent({ data: JSON.stringify({ type: "error", error: { message: "rate limited" } }), event: "error" });
+
+        acc.addEvent({ data: "[DONE]", event: "data" });
+
+        expect(acc.isErrored()).toBe(true);
+        expect(acc.isCompleted()).toBe(false);
     });
 
     it("flags output started on lifecycle events (preserves TTFT semantics)", () => {

@@ -59,6 +59,15 @@ export class AnthropicAccumulator extends AccumulatorBase {
      * 内部解析并检测完成/错误/首个输出。
      */
     addEvent(clientEvent: ProtocolStreamEvent): void {
+        // Some Anthropic-compatible upstreams append OpenAI-style [DONE] after
+        // the standard message_stop event. It is an SSE terminal marker, not JSON.
+        if (clientEvent.data === "[DONE]") {
+            if (!this.isErrored()) {
+                this.markCompleted();
+            }
+            return;
+        }
+
         let parsed: AnthropicChunk;
         try {
             parsed = JSON.parse(clientEvent.data);

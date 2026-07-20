@@ -92,6 +92,9 @@
                         <a-button type="link" style="padding: 0" @click="handleTest(record)">
                             测试
                         </a-button>
+                        <a-button type="link" danger style="padding: 0" @click="handleDelete(record)">
+                            删除
+                        </a-button>
                     </a-space>
                 </template>
             </template>
@@ -106,8 +109,9 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import type { TableColumnsType } from 'ant-design-vue';
 import { useRouter } from 'vue-router';
+import { Modal } from 'ant-design-vue/es';
 import { InfoCircleOutlined } from '@ant-design/icons-vue';
-import { listModels } from '@/api/model';
+import { deleteModel, listModels } from '@/api/model';
 import { listVendors, fetchVendorModelsByIds } from '@/api/vendor';
 import { getConfig } from '@/api/config';
 import { useResourceTable } from '@/composables/useResourceTable';
@@ -117,6 +121,7 @@ import DialogForm from './DialogForm.vue';
 import DialogTest from '@/views/Vendor/DialogTest.vue';
 import type { Model, ModelQuery } from '@/types/model';
 import type { Vendor as VendorType, VendorModel } from '@/types/vendor';
+import { notifyRequestError, notifySuccess } from '@/utils/requestFeedback';
 
 const router = useRouter();
 
@@ -153,7 +158,7 @@ const columns = computed<TableColumnsType<Model>>(() => {
     }
     cols.push(
         { title: '创建时间', key: 'created_at', dataIndex: 'created_at' },
-        { title: '操作', key: 'action', width: 120, fixed: 'right' as const },
+        { title: '操作', key: 'action', width: 160, fixed: 'right' as const },
     );
     return cols;
 });
@@ -205,6 +210,25 @@ function handleTest(record: Model) {
         vendorModelName,
         allowedFormats: vendorModel?.allowed_formats ?? null,
         showAutoConvert: true,
+    });
+}
+
+function handleDelete(record: Model) {
+    Modal.confirm({
+        title: '确认删除',
+        content: `确定要删除模型 "${record.name}" 吗？`,
+        okText: '确定',
+        cancelText: '取消',
+        okType: 'danger',
+        onOk: async () => {
+            try {
+                await deleteModel(record.id);
+                notifySuccess('删除成功');
+                void loadData();
+            } catch (error) {
+                notifyRequestError(error, '删除失败');
+            }
+        },
     });
 }
 

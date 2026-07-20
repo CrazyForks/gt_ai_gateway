@@ -112,8 +112,21 @@ async function updateModel(
     return await SgModel.query().find(modelId);
 }
 
+
+async function deleteModel(modelId: number): Promise<boolean> {
+    const model = await SgModel.query().find(modelId);
+
+    if (!model) {
+        return false;
+    }
+
+    await SgModel.query().where("id", modelId).delete();
+    return true;
+}
+
 export default {
     getModel,
     listEnabledModels,
     updateModel,
+    deleteModel,
 };

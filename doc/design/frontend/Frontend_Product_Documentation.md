@@ -197,6 +197,7 @@ Serverless AI Gateway 是一个轻量级的 AI 服务网关，用于统一管理
 - `POST /model/create.json` - 创建模型
 - `GET /model/:id` - 获取模型详情
 - `PUT /model/:id` - 更新模型
+- `DELETE /model/:id` - 删除模型
 
 #### 达到的效果
 - 简洁的模型管理流程

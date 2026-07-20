@@ -160,6 +160,24 @@ async function updateModel(c: Context) {
     return c.json(updatedModel);
 }
 
+
+async function deleteModel(c: Context) {
+    const id = c.req.param("id");
+    const modelId = parseInt(id, 10);
+
+    if (isNaN(modelId)) {
+        throw new customError.AppError("Invalid ID format");
+    }
+
+    const deleted = await modelService.deleteModel(modelId);
+
+    if (!deleted) {
+        throw new customError.NotFoundError("Model not found");
+    }
+
+    return c.json({ success: true });
+}
+
 export default {
     createModel,
     listModels,
@@ -167,4 +185,5 @@ export default {
     getModel,
     getModelsByIds,
     updateModel,
+    deleteModel,
 };

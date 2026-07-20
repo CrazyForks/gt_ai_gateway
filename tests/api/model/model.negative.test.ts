@@ -174,4 +174,20 @@ describe("Model API (Negative)", () => {
             expect(response.body).toHaveProperty("error");
         });
     });
+
+    describe("DELETE /model/:id", () => {
+        it("should return 404 for non-existent model ID", async () => {
+            const response = await requestHelper.del("/model/99999", adminToken);
+
+            expect(response.status).toBe(404);
+            expect(response.body.error).toBe("Model not found");
+        });
+
+        it("should return error for invalid ID format", async () => {
+            const response = await requestHelper.del("/model/invalid-id", adminToken);
+
+            expect(response.status).toBe(400);
+            expect(response.body.error).toBe("Invalid ID format");
+        });
+    });
 });

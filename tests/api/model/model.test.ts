@@ -464,4 +464,35 @@ describe("Model API (Positive)", () => {
             expect(response.body.vendor_model_id).toBeNull();
         });
     });
+
+    describe("DELETE /model/:id", () => {
+        it("should delete a model and allow its vendor to be deleted", async () => {
+            const vendorResponse = await requestHelper.post(
+                "/vendor/create.json",
+                vendorFixtures.createRandomVendor({ name: "Model Deletion Vendor" }),
+                adminToken,
+            );
+            const vendorId = vendorResponse.body.id;
+            const modelResponse = await requestHelper.post(
+                "/model/create.json",
+                modelFixtures.createRandomModel(vendorId, "model-to-delete"),
+                adminToken,
+            );
+            const modelId = modelResponse.body.id;
+
+            const blockedVendorDelete = await requestHelper.del(`/vendor/${vendorId}`, adminToken);
+            expect(blockedVendorDelete.status).toBe(400);
+
+            const deleteResponse = await requestHelper.del(`/model/${modelId}`, adminToken);
+            expect(deleteResponse.status).toBe(200);
+            expect(deleteResponse.body).toEqual({ success: true });
+
+            const getResponse = await requestHelper.get(`/model/${modelId}`, adminToken);
+            expect(getResponse.status).toBe(404);
+
+            const vendorDeleteResponse = await requestHelper.del(`/vendor/${vendorId}`, adminToken);
+            expect(vendorDeleteResponse.status).toBe(200);
+            expect(vendorDeleteResponse.body).toEqual({ success: true });
+        });
+    });
 });

@@ -170,7 +170,7 @@ frontend/
 | `getModel` | GET | /model/{id} | id: number | Model |
 | `createModel` | POST | /model/create.json | data: CreateModelRequest | Model |
 | `updateModel` | PUT | /model/{id} | id: number, data: UpdateModelRequest | Model |
-| `deleteModel` | DELETE | /model/{id} | id: number | void |
+| `deleteModel` | DELETE | /model/{id} | id: number | { success: boolean } |
 
 ### 4.5 系统 API 模块（src/api/system.ts）
 

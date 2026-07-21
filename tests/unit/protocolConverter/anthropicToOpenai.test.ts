@@ -140,7 +140,7 @@ describe("AnthropicToOpenAIConverter - convertRequest", () => {
         });
     });
 
-    it("should convert Anthropic thinking budget to OpenAI reasoning_effort", () => {
+    it("should convert Anthropic adaptive thinking + output_config to OpenAI reasoning_effort", () => {
         const baseReq: AnthropicRequest = {
             model: "claude-3-sonnet-20240229",
             max_tokens: 1024,
@@ -153,16 +153,51 @@ describe("AnthropicToOpenAIConverter - convertRequest", () => {
         }).reasoning_effort).toBe(ReasoningEffort.NONE);
         expect(converter.convertRequest({
             ...baseReq,
-            thinking: { type: "enabled", budget_tokens: 1024 },
+            thinking: { type: "adaptive" },
+            output_config: { effort: ReasoningEffort.MINIMAL },
         }).reasoning_effort).toBe(ReasoningEffort.MINIMAL);
         expect(converter.convertRequest({
             ...baseReq,
-            thinking: { type: "enabled", budget_tokens: 3000 },
+            thinking: { type: "adaptive" },
+            output_config: { effort: ReasoningEffort.LOW },
         }).reasoning_effort).toBe(ReasoningEffort.LOW);
         expect(converter.convertRequest({
             ...baseReq,
-            thinking: { type: "enabled", budget_tokens: 5000 },
+            thinking: { type: "adaptive" },
+            output_config: { effort: ReasoningEffort.MEDIUM },
         }).reasoning_effort).toBe(ReasoningEffort.MEDIUM);
+        expect(converter.convertRequest({
+            ...baseReq,
+            thinking: { type: "adaptive" },
+            output_config: { effort: ReasoningEffort.HIGH },
+        }).reasoning_effort).toBe(ReasoningEffort.HIGH);
+        expect(converter.convertRequest({
+            ...baseReq,
+            thinking: { type: "adaptive" },
+            output_config: { effort: ReasoningEffort.XHIGH },
+        }).reasoning_effort).toBe(ReasoningEffort.XHIGH);
+    });
+
+    it("should fall back to HIGH effort when adaptive thinking has no output_config", () => {
+        const baseReq: AnthropicRequest = {
+            model: "claude-3-sonnet-20240229",
+            max_tokens: 1024,
+            messages: [{ role: "user", content: "Hello" }],
+        };
+
+        expect(converter.convertRequest({
+            ...baseReq,
+            thinking: { type: "adaptive" },
+        }).reasoning_effort).toBe(ReasoningEffort.HIGH);
+    });
+
+    it("should parse legacy enabled + budget_tokens format for backward compat", () => {
+        const baseReq: AnthropicRequest = {
+            model: "claude-3-sonnet-20240229",
+            max_tokens: 1024,
+            messages: [{ role: "user", content: "Hello" }],
+        };
+
         expect(converter.convertRequest({
             ...baseReq,
             thinking: { type: "enabled", budget_tokens: 10000 },

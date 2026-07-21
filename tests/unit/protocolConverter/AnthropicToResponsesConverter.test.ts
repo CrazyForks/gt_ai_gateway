@@ -226,7 +226,7 @@ describe("AnthropicToResponsesConverter - convertRequest", () => {
         expect(result.tool_choice).toEqual({ type: "function", name: "get_weather" });
     });
 
-    it("should convert thinking budget to reasoning effort", () => {
+    it("should convert adaptive thinking + output_config to reasoning effort", () => {
         const baseReq: AnthropicRequest = {
             model: "claude-3-sonnet-20240229",
             max_tokens: 1024,
@@ -239,23 +239,28 @@ describe("AnthropicToResponsesConverter - convertRequest", () => {
         };
         const minimalReq: AnthropicRequest = {
             ...baseReq,
-            thinking: { type: "enabled", budget_tokens: 1024 },
+            thinking: { type: "adaptive" },
+            output_config: { effort: ReasoningEffort.MINIMAL },
         };
         const lowReq: AnthropicRequest = {
             ...baseReq,
-            thinking: { type: "enabled", budget_tokens: 3000 },
+            thinking: { type: "adaptive" },
+            output_config: { effort: ReasoningEffort.LOW },
         };
         const mediumReq: AnthropicRequest = {
             ...baseReq,
-            thinking: { type: "enabled", budget_tokens: 5000 },
+            thinking: { type: "adaptive" },
+            output_config: { effort: ReasoningEffort.MEDIUM },
         };
         const highReq: AnthropicRequest = {
             ...baseReq,
-            thinking: { type: "enabled", budget_tokens: 10000 },
+            thinking: { type: "adaptive" },
+            output_config: { effort: ReasoningEffort.HIGH },
         };
         const xhighReq: AnthropicRequest = {
             ...baseReq,
-            thinking: { type: "enabled", budget_tokens: 16000 },
+            thinking: { type: "adaptive" },
+            output_config: { effort: ReasoningEffort.XHIGH },
         };
 
         expect(converter.convertRequest(disabledReq).reasoning).toEqual({ effort: ReasoningEffort.NONE });
@@ -264,6 +269,19 @@ describe("AnthropicToResponsesConverter - convertRequest", () => {
         expect(converter.convertRequest(mediumReq).reasoning).toEqual({ effort: ReasoningEffort.MEDIUM });
         expect(converter.convertRequest(highReq).reasoning).toEqual({ effort: ReasoningEffort.HIGH });
         expect(converter.convertRequest(xhighReq).reasoning).toEqual({ effort: ReasoningEffort.XHIGH });
+    });
+
+    it("should parse legacy enabled + budget_tokens format for backward compat", () => {
+        const baseReq: AnthropicRequest = {
+            model: "claude-3-sonnet-20240229",
+            max_tokens: 1024,
+            messages: [{ role: "user", content: "Hello" }],
+        };
+
+        expect(converter.convertRequest({
+            ...baseReq,
+            thinking: { type: "enabled", budget_tokens: 10000 },
+        }).reasoning).toEqual({ effort: ReasoningEffort.HIGH });
     });
 
     it("should pass through temperature and top_p", () => {

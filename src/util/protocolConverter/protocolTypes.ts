@@ -25,8 +25,12 @@ export interface AnthropicTool {
 }
 
 export interface AnthropicThinkingConfig {
-    type: "enabled" | "disabled";
+    type: "adaptive" | "enabled" | "disabled";
     budget_tokens?: number;
+}
+
+export interface AnthropicOutputConfig {
+    effort: ReasoningEffort;
 }
 
 export interface AnthropicRequest {
@@ -48,6 +52,7 @@ export interface AnthropicRequest {
         name?: string;
     };
     thinking?: AnthropicThinkingConfig;
+    output_config?: AnthropicOutputConfig;
     metadata?: Record<string, unknown>;
 }
 

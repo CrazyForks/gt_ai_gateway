@@ -1,4 +1,4 @@
-import type { AnthropicThinkingConfig } from "./protocolTypes";
+import type { AnthropicThinkingConfig, AnthropicOutputConfig } from "./protocolTypes";
 
 export enum ReasoningEffort {
     NONE = "none",
@@ -84,24 +84,39 @@ function buildThinkingConfigFromReasoningEffort(effort?: string): ThinkingConfig
 
 export function buildThinkingConfigFromAnthropic(
     thinking?: AnthropicThinkingConfig,
+    output_config?: AnthropicOutputConfig,
 ): ThinkingConfig | undefined {
-    if (!thinking) {
+    if (!thinking && !output_config) {
         return undefined;
     }
 
-    if (thinking.type === "disabled") {
+    if (thinking?.type === "disabled") {
         return {
             enabled: false,
             effort: ReasoningEffort.NONE,
         };
     }
 
-    const effort = effortFromBudgetTokens(thinking.budget_tokens);
-    return {
-        enabled: effort !== ReasoningEffort.NONE,
-        effort,
-        budgetTokens: thinking.budget_tokens,
-    };
+    // 新格式：adaptive + output_config.effort
+    if (thinking?.type === "adaptive") {
+        const effort = output_config?.effort || ReasoningEffort.HIGH;
+        return {
+            enabled: effort !== ReasoningEffort.NONE,
+            effort,
+        };
+    }
+
+    // 向后兼容：旧格式 enabled + budget_tokens
+    if (thinking?.type === "enabled") {
+        const effort = effortFromBudgetTokens(thinking.budget_tokens);
+        return {
+            enabled: effort !== ReasoningEffort.NONE,
+            effort,
+            budgetTokens: thinking.budget_tokens,
+        };
+    }
+
+    return undefined;
 }
 
 export function buildThinkingConfigFromOpenAI(
@@ -117,23 +132,26 @@ export function buildThinkingConfigFromOpenAIResponses(
     return buildThinkingConfigFromReasoningEffort(reasoning?.effort);
 }
 
+export interface AnthropicThinkingOutput {
+    thinking?: AnthropicThinkingConfig;
+    output_config?: AnthropicOutputConfig;
+}
+
 export function thinkingConfigToAnthropic(
     config?: ThinkingConfig,
-): AnthropicThinkingConfig | undefined {
+): AnthropicThinkingOutput | undefined {
     if (!config) {
         return undefined;
     }
 
     if (!config.enabled || config.effort === ReasoningEffort.NONE) {
-        return { type: "disabled" };
+        return { thinking: { type: "disabled" } };
     }
 
     const effort = config.effort || ReasoningEffort.HIGH;
     return {
-        type: "enabled",
-        budget_tokens: config.budgetTokens && config.budgetTokens > 0
-            ? config.budgetTokens
-            : EFFORT_TO_BUDGET_TOKENS[effort],
+        thinking: { type: "adaptive" },
+        output_config: { effort },
     };
 }
 

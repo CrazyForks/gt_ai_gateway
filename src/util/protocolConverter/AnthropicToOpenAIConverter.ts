@@ -144,7 +144,7 @@ export class AnthropicToOpenAIConverter extends BaseConverter {
             openaiReq.tool_choice = openaiToolChoice;
         }
         const reasoningEffort = thinkingConfigToOpenAI(
-            buildThinkingConfigFromAnthropic(clientReq.thinking),
+            buildThinkingConfigFromAnthropic(clientReq.thinking, clientReq.output_config),
         );
         if (reasoningEffort) {
             openaiReq.reasoning_effort = reasoningEffort;

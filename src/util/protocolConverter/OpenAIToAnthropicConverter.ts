@@ -131,11 +131,16 @@ export class OpenAIToAnthropicConverter extends BaseConverter {
         if (anthropicToolChoice) {
             anthropicReq.tool_choice = anthropicToolChoice;
         }
-        const thinking = thinkingConfigToAnthropic(
+        const thinkingOutput = thinkingConfigToAnthropic(
             buildThinkingConfigFromOpenAI(clientReq.reasoning_effort, clientReq.reasoning),
         );
-        if (thinking) {
-            anthropicReq.thinking = thinking;
+        if (thinkingOutput) {
+            if (thinkingOutput.thinking) {
+                anthropicReq.thinking = thinkingOutput.thinking;
+            }
+            if (thinkingOutput.output_config) {
+                anthropicReq.output_config = thinkingOutput.output_config;
+            }
         }
 
         return anthropicReq;

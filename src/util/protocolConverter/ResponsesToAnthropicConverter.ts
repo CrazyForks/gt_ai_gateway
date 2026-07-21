@@ -154,11 +154,16 @@ export class ResponsesToAnthropicConverter extends BaseConverter {
             }
         }
 
-        const thinking = thinkingConfigToAnthropic(
+        const thinkingOutput = thinkingConfigToAnthropic(
             buildThinkingConfigFromOpenAIResponses(req.reasoning),
         );
-        if (thinking) {
-            anthropicReq.thinking = thinking;
+        if (thinkingOutput) {
+            if (thinkingOutput.thinking) {
+                anthropicReq.thinking = thinkingOutput.thinking;
+            }
+            if (thinkingOutput.output_config) {
+                anthropicReq.output_config = thinkingOutput.output_config;
+            }
         }
 
         return anthropicReq;

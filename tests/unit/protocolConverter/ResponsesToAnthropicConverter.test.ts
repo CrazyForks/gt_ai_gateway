@@ -327,36 +327,35 @@ describe("ResponsesToAnthropicConverter - convertRequest", () => {
         expect(result.tool_choice).toEqual({ type: "tool", name: "get_weather" });
     });
 
-    it("should convert reasoning effort to Anthropic thinking budgets", () => {
+    it("should convert reasoning effort to Anthropic adaptive thinking + output_config", () => {
         const baseReq: ResponsesRequest = {
             model: "gpt-4.1",
             input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "Hello" }] }],
         };
 
-        expect(converter.convertRequest({
-            ...baseReq,
-            reasoning: { effort: ReasoningEffort.NONE },
-        }).thinking).toEqual({ type: "disabled" });
-        expect(converter.convertRequest({
-            ...baseReq,
-            reasoning: { effort: ReasoningEffort.MINIMAL },
-        }).thinking).toEqual({ type: "enabled", budget_tokens: 1024 });
-        expect(converter.convertRequest({
-            ...baseReq,
-            reasoning: { effort: ReasoningEffort.LOW },
-        }).thinking).toEqual({ type: "enabled", budget_tokens: 3000 });
-        expect(converter.convertRequest({
-            ...baseReq,
-            reasoning: { effort: ReasoningEffort.MEDIUM },
-        }).thinking).toEqual({ type: "enabled", budget_tokens: 5000 });
-        expect(converter.convertRequest({
-            ...baseReq,
-            reasoning: { effort: ReasoningEffort.HIGH },
-        }).thinking).toEqual({ type: "enabled", budget_tokens: 10000 });
-        expect(converter.convertRequest({
-            ...baseReq,
-            reasoning: { effort: ReasoningEffort.XHIGH },
-        }).thinking).toEqual({ type: "enabled", budget_tokens: 16000 });
+        const noneResult = converter.convertRequest({ ...baseReq, reasoning: { effort: ReasoningEffort.NONE } });
+        expect(noneResult.thinking).toEqual({ type: "disabled" });
+        expect(noneResult.output_config).toBeUndefined();
+
+        const minimalResult = converter.convertRequest({ ...baseReq, reasoning: { effort: ReasoningEffort.MINIMAL } });
+        expect(minimalResult.thinking).toEqual({ type: "adaptive" });
+        expect(minimalResult.output_config).toEqual({ effort: ReasoningEffort.MINIMAL });
+
+        const lowResult = converter.convertRequest({ ...baseReq, reasoning: { effort: ReasoningEffort.LOW } });
+        expect(lowResult.thinking).toEqual({ type: "adaptive" });
+        expect(lowResult.output_config).toEqual({ effort: ReasoningEffort.LOW });
+
+        const mediumResult = converter.convertRequest({ ...baseReq, reasoning: { effort: ReasoningEffort.MEDIUM } });
+        expect(mediumResult.thinking).toEqual({ type: "adaptive" });
+        expect(mediumResult.output_config).toEqual({ effort: ReasoningEffort.MEDIUM });
+
+        const highResult = converter.convertRequest({ ...baseReq, reasoning: { effort: ReasoningEffort.HIGH } });
+        expect(highResult.thinking).toEqual({ type: "adaptive" });
+        expect(highResult.output_config).toEqual({ effort: ReasoningEffort.HIGH });
+
+        const xhighResult = converter.convertRequest({ ...baseReq, reasoning: { effort: ReasoningEffort.XHIGH } });
+        expect(xhighResult.thinking).toEqual({ type: "adaptive" });
+        expect(xhighResult.output_config).toEqual({ effort: ReasoningEffort.XHIGH });
     });
 
     it("should pass through temperature and top_p", () => {

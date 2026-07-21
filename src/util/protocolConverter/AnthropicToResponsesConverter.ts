@@ -188,7 +188,7 @@ export class AnthropicToResponsesConverter extends BaseConverter {
         }
 
         const reasoning = thinkingConfigToOpenAIResponses(
-            buildThinkingConfigFromAnthropic(req.thinking),
+            buildThinkingConfigFromAnthropic(req.thinking, req.output_config),
         );
         if (reasoning) {
             responsesReq.reasoning = reasoning;

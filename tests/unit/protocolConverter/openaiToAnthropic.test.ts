@@ -211,36 +211,35 @@ describe("OpenAIToAnthropicConverter - convertRequest", () => {
         }).tool_choice).toEqual({ type: "tool", name: "get_weather" });
     });
 
-    it("should convert reasoning_effort to Anthropic thinking budgets", () => {
+    it("should convert reasoning_effort to Anthropic adaptive thinking + output_config", () => {
         const baseReq: OpenAIRequest = {
             model: "gpt-4",
             messages: [{ role: "user", content: "Hello" }],
         };
 
-        expect(converter.convertRequest({
-            ...baseReq,
-            reasoning_effort: ReasoningEffort.NONE,
-        }).thinking).toEqual({ type: "disabled" });
-        expect(converter.convertRequest({
-            ...baseReq,
-            reasoning_effort: ReasoningEffort.MINIMAL,
-        }).thinking).toEqual({ type: "enabled", budget_tokens: 1024 });
-        expect(converter.convertRequest({
-            ...baseReq,
-            reasoning_effort: ReasoningEffort.LOW,
-        }).thinking).toEqual({ type: "enabled", budget_tokens: 3000 });
-        expect(converter.convertRequest({
-            ...baseReq,
-            reasoning_effort: ReasoningEffort.MEDIUM,
-        }).thinking).toEqual({ type: "enabled", budget_tokens: 5000 });
-        expect(converter.convertRequest({
-            ...baseReq,
-            reasoning_effort: ReasoningEffort.HIGH,
-        }).thinking).toEqual({ type: "enabled", budget_tokens: 10000 });
-        expect(converter.convertRequest({
-            ...baseReq,
-            reasoning_effort: ReasoningEffort.XHIGH,
-        }).thinking).toEqual({ type: "enabled", budget_tokens: 16000 });
+        const noneResult = converter.convertRequest({ ...baseReq, reasoning_effort: ReasoningEffort.NONE });
+        expect(noneResult.thinking).toEqual({ type: "disabled" });
+        expect(noneResult.output_config).toBeUndefined();
+
+        const minimalResult = converter.convertRequest({ ...baseReq, reasoning_effort: ReasoningEffort.MINIMAL });
+        expect(minimalResult.thinking).toEqual({ type: "adaptive" });
+        expect(minimalResult.output_config).toEqual({ effort: ReasoningEffort.MINIMAL });
+
+        const lowResult = converter.convertRequest({ ...baseReq, reasoning_effort: ReasoningEffort.LOW });
+        expect(lowResult.thinking).toEqual({ type: "adaptive" });
+        expect(lowResult.output_config).toEqual({ effort: ReasoningEffort.LOW });
+
+        const mediumResult = converter.convertRequest({ ...baseReq, reasoning_effort: ReasoningEffort.MEDIUM });
+        expect(mediumResult.thinking).toEqual({ type: "adaptive" });
+        expect(mediumResult.output_config).toEqual({ effort: ReasoningEffort.MEDIUM });
+
+        const highResult = converter.convertRequest({ ...baseReq, reasoning_effort: ReasoningEffort.HIGH });
+        expect(highResult.thinking).toEqual({ type: "adaptive" });
+        expect(highResult.output_config).toEqual({ effort: ReasoningEffort.HIGH });
+
+        const xhighResult = converter.convertRequest({ ...baseReq, reasoning_effort: ReasoningEffort.XHIGH });
+        expect(xhighResult.thinking).toEqual({ type: "adaptive" });
+        expect(xhighResult.output_config).toEqual({ effort: ReasoningEffort.XHIGH });
     });
 
     it("should convert reasoning.effort to Anthropic thinking", () => {
@@ -250,10 +249,9 @@ describe("OpenAIToAnthropicConverter - convertRequest", () => {
             reasoning: { effort: ReasoningEffort.HIGH },
         };
 
-        expect(converter.convertRequest(openaiReq).thinking).toEqual({
-            type: "enabled",
-            budget_tokens: 10000,
-        });
+        const result = converter.convertRequest(openaiReq);
+        expect(result.thinking).toEqual({ type: "adaptive" });
+        expect(result.output_config).toEqual({ effort: ReasoningEffort.HIGH });
     });
 
     it("should preserve raw tool arguments when JSON parsing fails", () => {

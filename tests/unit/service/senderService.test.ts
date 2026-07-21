@@ -580,7 +580,8 @@ describe("convertRequestBody - edge cases", () => {
         const anthropicReq = {
             model: "claude-3-sonnet-20240229",
             max_tokens: 4096,
-            thinking: { type: "enabled", budget_tokens: 10000 },
+            thinking: { type: "adaptive" },
+            output_config: { effort: "high" },
             messages: [
                 { role: "user", content: "Solve this problem" },
             ],
@@ -589,10 +590,10 @@ describe("convertRequestBody - edge cases", () => {
         const result = convertRequestBody(body, ApiFormat.ANTHROPIC, ApiFormat.OPENAI);
         const parsed = JSON.parse(result);
 
-        // Thinking config should be converted appropriately for OpenAI
-        // (the exact handling depends on the converter implementation)
+        // Thinking config should be converted to OpenAI reasoning_effort
         expect(parsed.model).toBe("claude-3-sonnet-20240229");
         expect(parsed.max_tokens).toBe(4096);
+        expect(parsed.reasoning_effort).toBe("high");
     });
 
     it("should produce valid JSON output after round-trip concept check", () => {

@@ -109,6 +109,8 @@ describe("AI Responses API", () => {
             );
 
             expect(response.status).toBe(200);
+            // 非流式 JSON 响应必须以 application/json 返回（见 messages.test.ts 同类断言说明）
+            expect(response.headers.get("content-type")).toContain("application/json");
             expect(response.body.object).toBe("response");
             expect(response.body.status).toBe("completed");
             expect(Array.isArray(response.body.output)).toBe(true);

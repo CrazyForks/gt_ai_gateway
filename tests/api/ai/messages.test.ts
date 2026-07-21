@@ -112,6 +112,10 @@ describe("AI Messages API (Anthropic)", () => {
             }
 
             expect(response.status).toBe(200);
+            // 非流式 JSON 响应必须以 application/json 返回，
+            // 不能是 text/plain（Hono c.text() 会错误地覆盖成 text/plain，
+            // 导致 Anthropic SDK 拒绝解析 → Claude Code 客户端崩溃）
+            expect(response.headers.get("content-type")).toContain("application/json");
             expect(response.body).toHaveProperty("id");
             expect(response.body).toHaveProperty("type");
             expect(response.body.type).toBe("message");

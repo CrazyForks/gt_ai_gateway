@@ -273,8 +273,8 @@ export async function handleChatNonStreamResponse(
     }
 
     c.status(statusCode);
-    c.res.headers.set("Content-Type", "application/json");
-    return c.text(clientResponseText);
+    c.header("Content-Type", "application/json");
+    return c.body(clientResponseText);
 }
 
 export async function handleResponsesStreamResponse(
@@ -527,8 +527,8 @@ export async function handleResponsesNonStreamResponse(
     }
 
     c.status(statusCode);
-    c.res.headers.set("Content-Type", "application/json");
-    return c.text(clientResponseText);
+    c.header("Content-Type", "application/json");
+    return c.body(clientResponseText);
 }
 
 export default {
